@@ -13,7 +13,7 @@ Route::post('/logout', LogoutController::class)
     ->name('logout');
 
 Route::middleware('auth')->group(function () {
-    Route::view('/', 'placeholders.feed')->name('feed');
+    Route::livewire('/', 'pages::feed.index')->name('feed');
 
     Route::post('/posts', fn () => response()->noContent())->name('posts.store');
 });

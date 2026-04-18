@@ -2,3 +2,4 @@ phase-00-project-baseline-pre-existing-laravel-skeleton.md
 phase-01-frontend-foundations-no-automated-tests.md
 phase-02-authentication-us-1-1-us-1-2-us-1-3.md
 phase-03-domain-schema-models.md
+phase-04-file-storage-minio-s3.md
