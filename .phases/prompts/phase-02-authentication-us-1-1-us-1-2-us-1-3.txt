@@ -1,0 +1,79 @@
+Voce e um desenvolvedor Laravel senior.
+
+## Stack do projeto
+- Laravel 13, PHP 8.5
+- Livewire 4 (full-page components com pages:: prefix)
+- Pest PHP 4 (testes)
+- Tailwind CSS 4 (via @theme no app.css)
+- pgsql (via Laravel Sail)
+- Interface em pt-BR
+
+## Arquivos de referencia importantes
+- CLAUDE.md — regras obrigatorias do projeto (LEIA PRIMEIRO)
+- docs/project-phases.md — plano completo de fases
+- docs/user-stories.md — user stories
+- docs/project-description.md — descricao geral
+
+## Sua tarefa agora
+Implemente COMPLETAMENTE a fase descrita abaixo.
+
+Para cada item:
+1. Implemente o codigo completo (nao deixe TODOs ou placeholders)
+2. Crie os testes listados
+3. Rode os testes com: ./vendor/bin/sail artisan test --compact
+4. Se um teste falhar, corrija o codigo e rode novamente
+5. So passe pro proximo item quando os testes passarem
+
+## Regras obrigatorias
+- LEIA o CLAUDE.md antes de comecar — ele contem as convencoes do projeto
+- Todos os comandos devem usar ./vendor/bin/sail (Docker/Sail)
+- Factories devem criar todas as dependencias (role, user, product, etc.)
+- Nomes de classes, arquivos e metodos devem seguir EXATAMENTE o que esta descrito
+- Todos os textos de interface em pt-BR
+- Nao pule nenhum item marcado com [ ]
+- Rode ./vendor/bin/sail artisan test --compact ao final para garantir que TUDO passa
+- Rode ./vendor/bin/sail bin pint --dirty para formatar o codigo
+
+## Fase a implementar
+## Phase 2 — Authentication (US-1.1, US-1.2, US-1.3)
+
+### 2.1 Register page (US-1.1)
+- [ ] Full-page Livewire component `pages::auth.register`, mounted at `GET /register`
+- [ ] Uses `<x-ui.input>` / `<x-ui.button>` from Phase 1
+- [ ] Form Object `App\Livewire\Forms\RegisterForm` with `#[Validate]` rules (name required, email unique, password min 8 + confirmation)
+- [ ] Creates user, logs them in, redirects to `/` (feed)
+- **Pest tests (`tests/Feature/Auth/RegisterTest.php`):**
+    - [ ] `register page is reachable` — `$this->get('/register')->assertOk()`
+    - [ ] `a visitor can register and is logged in` — Livewire test: set form fields, call `register`, assert redirect to feed and `auth()->check()` true
+    - [ ] `email must be unique` — seed existing user, assert validation error on `form.email`
+    - [ ] `password must meet minimum length` — short password triggers error
+    - [ ] `password confirmation must match` — mismatch triggers error
+    - [ ] `new account is immediately usable (no email verification)` — user created without `email_verified_at`, is able to post (covered by smoke test in Phase 5)
+
+### 2.2 Login page (US-1.2)
+- [ ] Full-page Livewire component `pages::auth.login`, mounted at `GET /login`
+- [ ] Form Object `LoginForm` with email/password + optional `remember`
+- [ ] On success redirect to intended URL or `/`
+- [ ] Generic "invalid credentials" error (don't leak which field is wrong)
+- **Pest tests (`tests/Feature/Auth/LoginTest.php`):**
+    - [ ] `login page is reachable`
+    - [ ] `a registered user can log in`
+    - [ ] `invalid credentials show a generic error`
+    - [ ] `remember me persists the session cookie`
+    - [ ] `authenticated user visiting /login is redirected to /`
+
+### 2.3 Logout (US-1.3)
+- [ ] Logout endpoint `POST /logout` invalidating session
+- [ ] Triggered from user menu in authenticated layout
+- **Pest tests (`tests/Feature/Auth/LogoutTest.php`):**
+    - [ ] `an authenticated user can log out` — asserts `auth()->check()` becomes false and redirect to `/login`
+    - [ ] `logout requires POST` — `GET /logout` returns 405
+
+### 2.4 Route protection
+- [ ] Feed route and all post/like/comment routes sit behind `auth` middleware
+- [ ] Guest hitting an auth-only route is redirected to `/login`
+- **Pest tests (`tests/Feature/Auth/RouteProtectionTest.php`):**
+    - [ ] `guest is redirected from / to /login`
+    - [ ] `guest is redirected from any post-action endpoint to /login`
+
+---
