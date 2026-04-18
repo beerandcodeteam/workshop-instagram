@@ -1,0 +1,11 @@
+phase-00-project-baseline-pre-existing-laravel-skeleton.md|Phase 0 — Project Baseline (pre-existing Laravel skeleton)
+phase-01-frontend-foundations-no-automated-tests.md|Phase 1 — Frontend Foundations (no automated tests)
+phase-02-authentication-us-1-1-us-1-2-us-1-3.md|Phase 2 — Authentication (US-1.1, US-1.2, US-1.3)
+phase-03-domain-schema-models.md|Phase 3 — Domain Schema & Models
+phase-04-file-storage-minio-s3.md|Phase 4 — File Storage (MinIO / S3)
+phase-05-feed-us-2-1-us-2-2.md|Phase 5 — Feed (US-2.1, US-2.2)
+phase-06-post-creation-us-3-1-us-3-2-us-3-3.md|Phase 6 — Post Creation (US-3.1, US-3.2, US-3.3)
+phase-07-post-management-us-3-4-us-3-5.md|Phase 7 — Post Management (US-3.4, US-3.5)
+phase-08-likes-us-4-1.md|Phase 8 — Likes (US-4.1)
+phase-09-comments-us-5-1-us-5-2.md|Phase 9 — Comments (US-5.1, US-5.2)
+phase-10-cross-cutting-quality-gates.md|Phase 10 — Cross-cutting quality gates
