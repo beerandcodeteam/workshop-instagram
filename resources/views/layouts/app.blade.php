@@ -35,7 +35,11 @@
 
                 <div class="flex items-center gap-2">
                     @auth
-                        <x-ui.button as="a" href="{{ url('/posts/create') }}" size="sm" variant="primary" wire:navigate>
+                        <x-ui.button
+                            size="sm"
+                            variant="primary"
+                            onclick="Livewire.dispatch('open-create-post-modal')"
+                        >
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                 <path d="M12 5v14M5 12h14" />
                             </svg>
@@ -108,6 +112,10 @@
                 {{ $slot }}
             </div>
         </main>
+
+        @auth
+            <livewire:post.create-modal />
+        @endauth
     </div>
 
     @livewireScripts

@@ -5,5 +5,5 @@ test('guest is redirected from / to /login', function () {
 });
 
 test('guest is redirected from any post-action endpoint to /login', function () {
-    $this->post('/posts')->assertRedirect('/login');
+    $this->get('/posts/create')->assertRedirect('/login');
 });

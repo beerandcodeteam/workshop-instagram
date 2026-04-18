@@ -4,6 +4,7 @@ namespace App\Livewire\Pages\Feed;
 
 use App\Models\Post;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -16,6 +17,12 @@ class Index extends Component
     public function loadMore(): void
     {
         $this->perPage += 10;
+    }
+
+    #[On('post.created')]
+    public function onPostCreated(): void
+    {
+        //
     }
 
     public function render()

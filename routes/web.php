@@ -15,5 +15,7 @@ Route::post('/logout', LogoutController::class)
 Route::middleware('auth')->group(function () {
     Route::livewire('/', 'pages::feed.index')->name('feed');
 
-    Route::post('/posts', fn () => response()->noContent())->name('posts.store');
+    Route::get('/posts/create', function () {
+        return redirect()->route('feed')->with('open_create_modal', true);
+    })->name('posts.create');
 });

@@ -13,7 +13,11 @@
                 Seja o primeiro a compartilhar um momento.
             </p>
             <div class="mt-4">
-                <x-ui.button as="a" href="{{ url('/posts/create') }}" variant="primary" size="sm" wire:navigate>
+                <x-ui.button
+                    variant="primary"
+                    size="sm"
+                    onclick="Livewire.dispatch('open-create-post-modal')"
+                >
                     Criar publicação
                 </x-ui.button>
             </div>
