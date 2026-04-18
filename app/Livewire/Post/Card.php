@@ -3,8 +3,11 @@
 namespace App\Livewire\Post;
 
 use App\Models\Post;
+use App\Services\MediaUploadService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 class Card extends Component
@@ -21,6 +24,32 @@ class Card extends Component
     public function toggleComments(): void
     {
         $this->showComments = ! $this->showComments;
+    }
+
+    #[On('post.updated')]
+    public function onPostUpdated(int $postId): void
+    {
+        if ($this->post->id === $postId) {
+            $this->post->refresh();
+        }
+    }
+
+    public function deletePost(MediaUploadService $mediaUploadService): void
+    {
+        $this->authorize('delete', $this->post);
+
+        DB::transaction(function () use ($mediaUploadService) {
+            $mediaUploadService->deleteForPost($this->post);
+            $this->post->delete();
+        });
+
+        $this->dispatch('post.deleted', postId: $this->post->id);
+    }
+
+    #[Computed]
+    public function canManage(): bool
+    {
+        return auth()->check() && auth()->id() === $this->post->user_id;
     }
 
     #[Computed]

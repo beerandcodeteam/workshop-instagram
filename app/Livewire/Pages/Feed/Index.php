@@ -25,6 +25,18 @@ class Index extends Component
         //
     }
 
+    #[On('post.deleted')]
+    public function onPostDeleted(): void
+    {
+        //
+    }
+
+    #[On('post.updated')]
+    public function onPostUpdated(): void
+    {
+        //
+    }
+
     public function render()
     {
         $totalPosts = Post::count();

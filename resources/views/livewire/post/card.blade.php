@@ -11,6 +11,86 @@
                 {{ $post->created_at?->diffForHumans() }}
             </p>
         </div>
+
+        @if ($this->canManage)
+            <div
+                x-data="{ open: false, confirming: false }"
+                @click.outside="open = false; confirming = false;"
+                class="relative"
+            >
+                <button
+                    type="button"
+                    @click="open = ! open"
+                    class="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-full)] text-[var(--color-text-muted)] hover:bg-[var(--color-neutral-100)] hover:text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-via)]"
+                    aria-label="Ações da publicação"
+                    aria-haspopup="true"
+                    :aria-expanded="open.toString()"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <circle cx="5" cy="12" r="2" />
+                        <circle cx="12" cy="12" r="2" />
+                        <circle cx="19" cy="12" r="2" />
+                    </svg>
+                </button>
+
+                <div
+                    x-show="open && ! confirming"
+                    x-cloak
+                    x-transition.opacity
+                    class="absolute right-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg"
+                    role="menu"
+                >
+                    <livewire:post.edit-caption :post="$post" :key="'post-edit-caption-'.$post->id" />
+
+                    <button
+                        type="button"
+                        @click="confirming = true"
+                        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[var(--color-danger)] hover:bg-[var(--color-neutral-100)] focus:outline-none focus:bg-[var(--color-neutral-100)]"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" />
+                            <path d="M10 11v6" />
+                            <path d="M14 11v6" />
+                            <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+                        </svg>
+                        <span>Excluir</span>
+                    </button>
+                </div>
+
+                <div
+                    x-show="confirming"
+                    x-cloak
+                    x-transition.opacity
+                    class="absolute right-0 top-full z-20 mt-1 w-64 overflow-hidden rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3 shadow-lg"
+                    role="alertdialog"
+                >
+                    <p class="text-sm text-[var(--color-text)]">
+                        Tem certeza que deseja excluir esta publicação? Esta ação não pode ser desfeita.
+                    </p>
+                    <div class="mt-3 flex items-center justify-end gap-2">
+                        <x-ui.button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            @click="confirming = false; open = false;"
+                        >
+                            Cancelar
+                        </x-ui.button>
+                        <x-ui.button
+                            type="button"
+                            variant="danger"
+                            size="sm"
+                            wire:click="deletePost"
+                            @click="confirming = false; open = false;"
+                        >
+                            <span wire:loading.remove wire:target="deletePost">Excluir</span>
+                            <span wire:loading wire:target="deletePost">Excluindo...</span>
+                        </x-ui.button>
+                    </div>
+                </div>
+            </div>
+        @endif
     </header>
 
     @php($slug = $post->type->slug)
