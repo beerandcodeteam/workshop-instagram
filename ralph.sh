@@ -159,52 +159,41 @@ build_prompt_file() {
   local prompt_file="$PROMPT_DIR/${phase_file%.md}.txt"
 
   cat > "$prompt_file" <<PROMPT
-Voce e um desenvolvedor Laravel senior trabalhando no projeto "Workshop Instagram" —
-um clone simplificado do Instagram (feed global, posts text/image/video, likes,
-comentarios) que sera usado como base para um workshop sobre embeddings e sistemas
-de recomendacao.
+Voce e um desenvolvedor Laravel senior.
 
 ## Stack do projeto
-- PHP 8.5, Laravel 13
-- Livewire 4 (class components com prefixo pages::; nao usar Volt)
-- Pest PHP 4 (testes; usar RefreshDatabase nos testes que tocam DB)
-- Tailwind CSS 4 (via @theme no resources/css/app.css)
-- PostgreSQL via Laravel Sail, imagem pgvector/pgvector:pg18 (pgvector ja disponivel para o workshop futuro)
-- Storage de media: disco S3-compativel — MinIO em local/dev, S3 em producao
-- Laravel AI SDK (laravel/ai) instalado, porem NAO usado pelo app base (fica para o workshop)
-- APP_LOCALE=en — interface do app em ingles
+- Laravel 13, PHP 8.5
+- Livewire 4 (full-page components com pages:: prefix)
+- Pest PHP 4 (testes)
+- Tailwind CSS 4 (via @theme no app.css)
+- pgsql (via Laravel Sail)
+- Interface em pt-BR
 
 ## Arquivos de referencia importantes
 - CLAUDE.md — regras obrigatorias do projeto (LEIA PRIMEIRO)
-- .docs/project-phases.md — plano completo de fases (este prompt implementa uma delas)
-- .docs/user-stories.md — user stories com criterios de aceite
-- .docs/project-description.md — overview, stack e core workflows
-- .docs/database-schema.md — schema DBML + notas de modelagem (lookup tables, cascade, etc.)
+- docs/project-phases.md — plano completo de fases
+- docs/user-stories.md — user stories
+- docs/project-description.md — descricao geral
 
 ## Sua tarefa agora
 Implemente COMPLETAMENTE a fase descrita abaixo.
 
 Para cada item:
 1. Implemente o codigo completo (nao deixe TODOs ou placeholders)
-2. Crie os testes Pest listados como criterio de aceite
+2. Crie os testes listados
 3. Rode os testes com: ./vendor/bin/sail artisan test --compact
 4. Se um teste falhar, corrija o codigo e rode novamente
 5. So passe pro proximo item quando os testes passarem
 
 ## Regras obrigatorias
-- LEIA o CLAUDE.md antes de comecar — ele contem as convencoes do projeto (Sail, Livewire 4, Pest, lookup tables ao inves de enums, etc.)
+- LEIA o CLAUDE.md antes de comecar — ele contem as convencoes do projeto
 - Todos os comandos devem usar ./vendor/bin/sail (Docker/Sail)
-- Use Artisan (make:model, make:migration, make:livewire, make:test --pest) — nao crie arquivos na mao quando houver comando
-- Factories devem criar todas as dependencias do dominio (User, Post, PostType, PostMedia, Like, Comment) e usar states (ex: PostFactory::text(), ::image($count), ::video())
-- Nunca use colunas enum nem strings "enum-like" — sempre tabela lookup com FK (ex: post_types)
-- Para uploads: storage como string em coluna *_path; media multipla vai em tabela relacionada (post_media)
-- Respeite o cascade delete documentado no schema (deletar post limpa media, likes, comments e arquivos no disco)
-- Nomes de classes, arquivos, metodos e rotas devem seguir EXATAMENTE o que esta descrito na fase
-- Interface do app em ingles (APP_LOCALE=en)
+- Factories devem criar todas as dependencias (role, user, product, etc.)
+- Nomes de classes, arquivos e metodos devem seguir EXATAMENTE o que esta descrito
+- Todos os textos de interface em pt-BR
 - Nao pule nenhum item marcado com [ ]
 - Rode ./vendor/bin/sail artisan test --compact ao final para garantir que TUDO passa
-- Rode ./vendor/bin/sail bin pint --dirty --format agent para formatar o codigo
-- Se alterar CSS/JS/Blade, rode ./vendor/bin/sail npm run build ao final
+- Rode ./vendor/bin/sail bin pint --dirty para formatar o codigo
 
 ## Fase a implementar
 $(cat "$PHASES_DIR/$phase_file")
