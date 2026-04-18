@@ -12,14 +12,14 @@
         'xl' => 'max-w-xl',
         '2xl' => 'max-w-2xl',
     ][$maxWidth] ?? 'max-w-md';
-
-    $alpineInit = $name
-        ? "{ show: false, init() { window.addEventListener('open-modal', (e) => { if (e.detail === '{$name}') this.show = true }); window.addEventListener('close-modal', (e) => { if (e.detail === '{$name}') this.show = false }) }, close() { this.show = false } }"
-        : "{ show: @entangle(\$attributes->wire('model')).live, close() { this.show = false } }";
 @endphp
 
 <div
-    x-data="{{ $alpineInit }}"
+    @if ($name)
+        x-data="{ show: false, init() { window.addEventListener('open-modal', (e) => { if (e.detail === '{{ $name }}') this.show = true }); window.addEventListener('close-modal', (e) => { if (e.detail === '{{ $name }}') this.show = false }) }, close() { this.show = false } }"
+    @else
+        x-data="{ show: @entangle($attributes->wire('model')).live, close() { this.show = false } }"
+    @endif
     x-show="show"
     x-cloak
     @keydown.escape.window="close()"

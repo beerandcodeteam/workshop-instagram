@@ -180,17 +180,7 @@
     @endif
 
     <div class="flex items-center gap-4 px-4 py-3">
-        <button
-            type="button"
-            class="inline-flex items-center gap-1 text-sm font-medium text-[var(--color-text)] hover:text-[var(--color-danger)] transition"
-            aria-label="Curtir"
-            disabled
-        >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
-            </svg>
-            <span>{{ $post->likes_count ?? $post->likes->count() }}</span>
-        </button>
+        <livewire:post.like-button :post="$post" :key="'post-like-button-'.$post->id" />
 
         <button
             type="button"
@@ -213,8 +203,6 @@
     @endif
 
     @if ($showComments)
-        <div class="border-t border-[var(--color-border)] px-4 py-3 text-sm text-[var(--color-text-muted)]">
-            Comentários em breve.
-        </div>
+        <livewire:post.comments :post="$post" :key="'post-comments-'.$post->id" />
     @endif
 </article>

@@ -34,6 +34,15 @@ class Card extends Component
         }
     }
 
+    #[On('comment.added')]
+    #[On('comment.deleted')]
+    public function onCommentChanged(int $postId): void
+    {
+        if ($this->post->id === $postId) {
+            $this->post->loadCount('comments');
+        }
+    }
+
     public function deletePost(MediaUploadService $mediaUploadService): void
     {
         $this->authorize('delete', $this->post);

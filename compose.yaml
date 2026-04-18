@@ -1,11 +1,11 @@
 services:
     laravel.test:
         build:
-            context: './vendor/laravel/sail/runtimes/8.5'
+            context: ./vendor/laravel/sail/runtimes/8.5
             dockerfile: Dockerfile
             args:
                 WWWGROUP: '${WWWGROUP}'
-        image: 'sail-8.5/app'
+        image: sail-8.5/app
         extra_hosts:
             - 'host.docker.internal:host-gateway'
         ports:
@@ -76,13 +76,7 @@ services:
             - minio
         networks:
             - sail
-        entrypoint: >
-            /bin/sh -c "
-            until (/usr/bin/mc alias set local http://minio:9000 ${AWS_ACCESS_KEY_ID:-sail} ${AWS_SECRET_ACCESS_KEY:-password}) do echo 'Waiting for MinIO...' && sleep 1; done;
-            /usr/bin/mc mb --ignore-existing local/${AWS_BUCKET:-local};
-            /usr/bin/mc anonymous set public local/${AWS_BUCKET:-local};
-            exit 0;
-            "
+        entrypoint: "/bin/sh -c \" until (/usr/bin/mc alias set local http://minio:9000 ${AWS_ACCESS_KEY_ID:-sail} ${AWS_SECRET_ACCESS_KEY:-password}) do echo 'Waiting for MinIO...' && sleep 1; done; /usr/bin/mc mb --ignore-existing local/${AWS_BUCKET:-local}; /usr/bin/mc anonymous set public local/${AWS_BUCKET:-local}; exit 0; \"\n"
 networks:
     sail:
         driver: bridge
