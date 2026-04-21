@@ -1,4 +1,47 @@
-<article class="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
+<article
+    x-data="{
+        postId: {{ $post->id }},
+        visible: false,
+        observer: null,
+        emit(name) {
+            window.dispatchEvent(new CustomEvent(name, { detail: { postId: this.postId } }));
+        },
+        init() {
+            if (typeof IntersectionObserver === 'undefined') {
+                return;
+            }
+
+            this.observer = new IntersectionObserver((entries) => {
+                entries.forEach((entry) => {
+                    const nowVisible = entry.isIntersecting && entry.intersectionRatio >= 0.5;
+
+                    if (nowVisible && ! this.visible) {
+                        this.visible = true;
+                        this.emit('dwell-enter');
+                    } else if (! nowVisible && this.visible) {
+                        this.visible = false;
+                        this.emit('dwell-leave');
+                    }
+                });
+            }, { threshold: [0, 0.5, 1] });
+
+            this.observer.observe(this.$el);
+        },
+        destroy() {
+            if (this.visible) {
+                this.emit('dwell-leave');
+                this.visible = false;
+            }
+
+            if (this.observer) {
+                this.observer.disconnect();
+                this.observer = null;
+            }
+        },
+    }"
+    data-post-id="{{ $post->id }}"
+    class="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden"
+>
     <header class="flex items-center gap-3 px-4 py-3">
         <div class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-full)] bg-gradient-to-br from-[var(--color-brand-from)] via-[var(--color-brand-via)] to-[var(--color-brand-to)] text-sm font-semibold text-white">
             {{ strtoupper(mb_substr($post->author->name ?? 'U', 0, 1)) }}

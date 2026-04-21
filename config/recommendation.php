@@ -24,4 +24,9 @@ return [
         'weight_threshold' => env('REC_AV_WEIGHT_THRESHOLD', 1.0),
     ],
 
+    'view_signals' => [
+        'aggregation_window_minutes' => env('REC_VIEW_AGG_WINDOW_MINUTES', 10),
+        'refresh_threshold_delta' => env('REC_VIEW_REFRESH_THRESHOLD', 1.0),
+    ],
+
 ];

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\LogoutController;
+use App\Http\Controllers\Recommendation\ViewEventsController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
@@ -18,4 +19,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/posts/create', function () {
         return redirect()->route('feed')->with('open_create_modal', true);
     })->name('posts.create');
+
+    Route::post('/api/rec/view-events', [ViewEventsController::class, 'store'])
+        ->name('rec.view-events.store');
 });
