@@ -3,9 +3,11 @@
 use App\Livewire\Pages\Feed\Index;
 use App\Models\Post;
 use App\Models\User;
+use Illuminate\Support\Facades\Redis;
 use Livewire\Livewire;
 
 beforeEach(function () {
+    Redis::flushdb();
     $this->actingAs(User::factory()->create());
 });
 

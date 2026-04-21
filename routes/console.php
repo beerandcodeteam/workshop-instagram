@@ -2,6 +2,7 @@
 
 use App\Jobs\AggregateViewSignalsJob;
 use App\Jobs\RefreshLongTermEmbeddingsJob;
+use App\Jobs\RefreshTrendingPoolJob;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -19,4 +20,9 @@ Schedule::job(new RefreshLongTermEmbeddingsJob)
 Schedule::job(new AggregateViewSignalsJob)
     ->everyTenMinutes()
     ->name('aggregate-view-signals')
+    ->withoutOverlapping();
+
+Schedule::job(new RefreshTrendingPoolJob)
+    ->everyFiveMinutes()
+    ->name('refresh-trending-pool')
     ->withoutOverlapping();

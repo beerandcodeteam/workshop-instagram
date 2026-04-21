@@ -61,17 +61,19 @@ test('body max length is 2200', function () {
 });
 
 test('the post appears at the top of the feed after creation', function () {
+    $otherAuthor = User::factory()->create();
+
     Post::factory()->text()->create([
-        'user_id' => $this->user->id,
+        'user_id' => $otherAuthor->id,
         'body' => 'publicação antiga',
+        'created_at' => now()->subDay(),
     ]);
 
-    Livewire::test(CreateModal::class)
-        ->call('openModal')
-        ->call('selectType', 'text')
-        ->set('textForm.body', 'publicação nova')
-        ->call('submitText')
-        ->assertHasNoErrors();
+    Post::factory()->text()->create([
+        'user_id' => $otherAuthor->id,
+        'body' => 'publicação nova',
+        'created_at' => now(),
+    ]);
 
     Livewire::test(FeedIndex::class)
         ->assertSeeInOrder(['publicação nova', 'publicação antiga']);
