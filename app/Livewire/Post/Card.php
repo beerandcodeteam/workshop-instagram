@@ -14,16 +14,9 @@ class Card extends Component
 {
     public Post $post;
 
-    public bool $showComments = false;
-
     public function mount(Post $post): void
     {
         $this->post = $post;
-    }
-
-    public function toggleComments(): void
-    {
-        $this->showComments = ! $this->showComments;
     }
 
     #[On('post.updated')]

@@ -184,7 +184,7 @@
 
         <button
             type="button"
-            wire:click="toggleComments"
+            onclick="Livewire.dispatch('open-post-detail', { postId: {{ $post->id }} })"
             class="inline-flex items-center gap-1 text-sm font-medium text-[var(--color-text)] hover:text-[var(--color-brand-via)] transition"
             aria-label="Comentários"
         >
@@ -202,7 +202,15 @@
         </div>
     @endif
 
-    @if ($showComments)
-        <livewire:post.comments :post="$post" :key="'post-comments-'.$post->id" />
+    @if (($post->comments_count ?? 0) > 0)
+        <div class="px-4 pb-3 -mt-2">
+            <button
+                type="button"
+                onclick="Livewire.dispatch('open-post-detail', { postId: {{ $post->id }} })"
+                class="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition"
+            >
+                Ver {{ $post->comments_count === 1 ? 'o comentário' : 'todos os '.$post->comments_count.' comentários' }}
+            </button>
+        </div>
     @endif
 </article>

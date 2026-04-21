@@ -14,8 +14,10 @@
     @livewireStyles
 </head>
 <body class="min-h-screen bg-[var(--color-bg)] font-sans text-[var(--color-text)] antialiased">
-    <div class="min-h-screen flex flex-col">
-        <header class="sticky top-0 z-40 bg-[var(--color-surface)]/90 backdrop-blur border-b border-[var(--color-border)]">
+    <x-layout.sidebar :active="$sidebarActive ?? 'home'" />
+
+    <div class="min-h-screen flex flex-col md:pl-[76px] xl:pl-[245px]">
+        <header class="md:hidden sticky top-0 z-40 bg-[var(--color-surface)]/90 backdrop-blur border-b border-[var(--color-border)]">
             <div class="max-w-5xl mx-auto flex items-center justify-between px-4 h-14">
                 <a href="{{ url('/') }}" class="inline-flex items-center gap-2 text-lg font-bold bg-gradient-to-r from-[var(--color-brand-from)] via-[var(--color-brand-via)] to-[var(--color-brand-to)] bg-clip-text text-transparent" wire:navigate>
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="url(#logo-gradient-app)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -30,7 +32,7 @@
                         <circle cx="12" cy="12" r="4" />
                         <circle cx="17.5" cy="6.5" r="1" fill="currentColor" />
                     </svg>
-                    <span class="hidden sm:inline">{{ config('app.name', 'Instagram') }}</span>
+                    <span>{{ config('app.name', 'Instagram') }}</span>
                 </a>
 
                 <div class="flex items-center gap-2">
@@ -43,49 +45,18 @@
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                 <path d="M12 5v14M5 12h14" />
                             </svg>
-                            <span class="hidden sm:inline">Criar post</span>
                         </x-ui.button>
 
-                        <div
-                            x-data="{ open: false }"
-                            @click.outside="open = false"
-                            @keydown.escape.window="open = false"
-                            class="relative"
-                        >
+                        <form method="POST" action="{{ url('/logout') }}" role="none">
+                            @csrf
                             <button
-                                type="button"
-                                @click="open = !open"
-                                class="inline-flex items-center justify-center h-9 w-9 rounded-[var(--radius-full)] bg-gradient-to-br from-[var(--color-brand-from)] via-[var(--color-brand-via)] to-[var(--color-brand-to)] text-white font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-via)] focus:ring-offset-2 focus:ring-offset-[var(--color-surface)]"
-                                aria-haspopup="true"
-                                :aria-expanded="open.toString()"
-                                aria-label="Menu do usuário"
+                                type="submit"
+                                class="inline-flex items-center justify-center h-9 w-9 rounded-[var(--radius-full)] bg-gradient-to-br from-[var(--color-brand-from)] via-[var(--color-brand-via)] to-[var(--color-brand-to)] text-white font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-via)]"
+                                aria-label="Sair"
                             >
                                 {{ strtoupper(mb_substr(auth()->user()->name ?? 'U', 0, 1)) }}
                             </button>
-
-                            <div
-                                x-show="open"
-                                x-transition
-                                x-cloak
-                                class="absolute right-0 mt-2 w-56 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-md)] shadow-lg py-1 z-50"
-                                role="menu"
-                            >
-                                <div class="px-4 py-2 border-b border-[var(--color-border)]">
-                                    <p class="text-sm font-medium text-[var(--color-text)] truncate">{{ auth()->user()->name ?? '' }}</p>
-                                    <p class="text-xs text-[var(--color-text-muted)] truncate">{{ auth()->user()->email ?? '' }}</p>
-                                </div>
-                                <form method="POST" action="{{ url('/logout') }}" role="none">
-                                    @csrf
-                                    <button
-                                        type="submit"
-                                        class="w-full text-left px-4 py-2 text-sm text-[var(--color-text)] hover:bg-[var(--color-neutral-100)] transition"
-                                        role="menuitem"
-                                    >
-                                        Sair
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
+                        </form>
                     @else
                         <x-ui.button as="a" href="{{ url('/login') }}" size="sm" variant="secondary" wire:navigate>
                             Entrar
@@ -96,7 +67,7 @@
         </header>
 
         <main class="flex-1 w-full">
-            <div class="mx-auto w-full max-w-[630px] px-4 py-6">
+            <div class="mx-auto w-full max-w-[975px] px-4 py-6">
                 @session('status')
                     <div class="mb-4 rounded-[var(--radius-md)] bg-[var(--color-success)]/10 border border-[var(--color-success)]/30 text-[var(--color-success)] px-4 py-2 text-sm">
                         {{ session('status') }}
@@ -116,6 +87,8 @@
         @auth
             <livewire:post.create-modal />
         @endauth
+
+        <livewire:post.detail />
     </div>
 
     @livewireScripts
