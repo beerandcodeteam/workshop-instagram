@@ -3,6 +3,7 @@
 namespace App\Services\Recommendation;
 
 use App\Models\User;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class CandidateGenerator
@@ -53,6 +54,90 @@ class CandidateGenerator
         }
 
         return $candidates;
+    }
+
+    /**
+     * Pulls candidates near each interest cluster of the user.
+     *
+     * For every cluster we run an HNSW lookup on `posts.embedding <=>
+     * cluster.embedding`, capped at `perClusterLimit`. The global pool is
+     * limited to `totalLimit`, with slots distributed proportionally to each
+     * cluster weight (so the dominant interest gets more room).
+     *
+     * @return array<int, Candidate>
+     */
+    public function annByClusters(User $user, ?int $totalLimit = null, ?int $perClusterLimit = null): array
+    {
+        $totalLimit ??= (int) config('recommendation.clusters.global_limit', 300);
+        $perClusterLimit ??= (int) config('recommendation.clusters.per_cluster_limit', 100);
+
+        if ($totalLimit <= 0 || $perClusterLimit <= 0) {
+            return [];
+        }
+
+        $clusters = DB::table('user_interest_clusters')
+            ->where('user_id', $user->id)
+            ->orderBy('cluster_index')
+            ->get(['cluster_index', 'weight', DB::raw('embedding::text as embedding_text')]);
+
+        if ($clusters->isEmpty()) {
+            return [];
+        }
+
+        $totalWeight = (float) $clusters->sum('weight');
+        if ($totalWeight <= 0.0) {
+            return [];
+        }
+
+        $perCluster = [];
+        $byPost = [];
+
+        foreach ($clusters as $cluster) {
+            $vector = $this->parseVector((string) $cluster->embedding_text);
+            if ($vector === []) {
+                continue;
+            }
+
+            $rows = $this->annRows($vector, $perClusterLimit);
+
+            $perCluster[(int) $cluster->cluster_index] = [
+                'weight' => (float) $cluster->weight,
+                'rows' => $rows,
+            ];
+        }
+
+        if ($perCluster === []) {
+            return [];
+        }
+
+        $allocations = $this->allocateSlots($perCluster, $totalLimit, $perClusterLimit, $totalWeight);
+
+        foreach ($perCluster as $clusterIndex => $entry) {
+            $slots = $allocations[$clusterIndex] ?? 0;
+            if ($slots <= 0) {
+                continue;
+            }
+
+            $taken = 0;
+            foreach ($entry['rows'] as $row) {
+                if ($taken >= $slots) {
+                    break;
+                }
+
+                $postId = (int) $row->id;
+                $similarity = 1.0 - (float) $row->distance;
+
+                if (! isset($byPost[$postId]) || $byPost[$postId]->sourceScore < $similarity) {
+                    $byPost[$postId] = Candidate::make($postId, 'ann_cluster', $similarity, [
+                        'cluster_index' => $clusterIndex,
+                    ]);
+                }
+
+                $taken++;
+            }
+        }
+
+        return $byPost;
     }
 
     /**
@@ -118,10 +203,13 @@ class CandidateGenerator
         $shortLimit = (int) config('recommendation.candidates.ann_short_term_limit', 200);
         $trendingLimit = (int) config('recommendation.candidates.trending_limit', 100);
         $explorationLimit = (int) config('recommendation.candidates.exploration_limit', 50);
+        $clustersLimit = (int) config('recommendation.clusters.global_limit', 300);
+        $perClusterLimit = (int) config('recommendation.clusters.per_cluster_limit', 100);
 
         $sources = [
             $this->annByLongTerm($user, $longLimit),
             $this->annByShortTerm($user, $shortLimit),
+            $this->annByClusters($user, $clustersLimit, $perClusterLimit),
             $this->trending($user, $trendingLimit),
             $this->exploration($user, $explorationLimit),
         ];
@@ -214,15 +302,7 @@ class CandidateGenerator
             return [];
         }
 
-        $literal = '['.implode(',', $vector).']';
-
-        $rows = DB::table('posts')
-            ->selectRaw('id, (embedding <=> ?::vector) as distance', [$literal])
-            ->whereNotNull('embedding')
-            ->whereNull('deleted_at')
-            ->orderByRaw('embedding <=> ?::vector', [$literal])
-            ->limit($limit)
-            ->get();
+        $rows = $this->annRows($vector, $limit);
 
         $candidates = [];
         foreach ($rows as $row) {
@@ -233,5 +313,94 @@ class CandidateGenerator
         }
 
         return $candidates;
+    }
+
+    /**
+     * @param  list<float>  $vector
+     * @return Collection<int, object>
+     */
+    private function annRows(array $vector, int $limit): Collection
+    {
+        $literal = '['.implode(',', $vector).']';
+
+        return DB::table('posts')
+            ->selectRaw('id, (embedding <=> ?::vector) as distance', [$literal])
+            ->whereNotNull('embedding')
+            ->whereNull('deleted_at')
+            ->orderByRaw('embedding <=> ?::vector', [$literal])
+            ->limit($limit)
+            ->get();
+    }
+
+    /**
+     * Largest-remainder method: distribute $totalLimit slots across clusters
+     * proportionally to weight, capped at per-cluster row availability.
+     *
+     * @param  array<int, array{weight: float, rows: Collection<int, object>}>  $perCluster
+     * @return array<int, int>
+     */
+    private function allocateSlots(array $perCluster, int $totalLimit, int $perClusterLimit, float $totalWeight): array
+    {
+        $rawShares = [];
+        $allocations = [];
+        $remainders = [];
+
+        $availableTotal = 0;
+        foreach ($perCluster as $clusterIndex => $entry) {
+            $available = min($perClusterLimit, $entry['rows']->count());
+            $availableTotal += $available;
+        }
+
+        $cap = min($totalLimit, $availableTotal);
+
+        foreach ($perCluster as $clusterIndex => $entry) {
+            $share = $cap * ($entry['weight'] / $totalWeight);
+            $rawShares[$clusterIndex] = $share;
+
+            $available = min($perClusterLimit, $entry['rows']->count());
+            $floor = (int) min($available, floor($share));
+
+            $allocations[$clusterIndex] = $floor;
+            $remainders[$clusterIndex] = $share - $floor;
+        }
+
+        $assigned = array_sum($allocations);
+        $remaining = $cap - $assigned;
+
+        if ($remaining <= 0) {
+            return $allocations;
+        }
+
+        arsort($remainders);
+
+        foreach (array_keys($remainders) as $clusterIndex) {
+            if ($remaining <= 0) {
+                break;
+            }
+
+            $available = min($perClusterLimit, $perCluster[$clusterIndex]['rows']->count());
+            if ($allocations[$clusterIndex] >= $available) {
+                continue;
+            }
+
+            $allocations[$clusterIndex]++;
+            $remaining--;
+        }
+
+        return $allocations;
+    }
+
+    /**
+     * @return list<float>
+     */
+    private function parseVector(string $text): array
+    {
+        $trimmed = trim($text, "[] \t\n\r");
+
+        if ($trimmed === '') {
+            return [];
+        }
+
+        return array_map('floatval', explode(',', $trimmed));
     }
 }

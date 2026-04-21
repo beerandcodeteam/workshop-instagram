@@ -2,6 +2,7 @@
 
 use App\Jobs\AggregateViewSignalsJob;
 use App\Jobs\PurgeRecommendationLogsJob;
+use App\Jobs\RefreshInterestClustersJob;
 use App\Jobs\RefreshLongTermEmbeddingsJob;
 use App\Jobs\RefreshTrendingPoolJob;
 use Illuminate\Foundation\Inspiring;
@@ -32,6 +33,14 @@ Schedule::job(new PurgeRecommendationLogsJob)
     ->dailyAt('04:00')
     ->timezone('America/Sao_Paulo')
     ->name('purge-recommendation-logs')
+    ->withoutOverlapping();
+
+Schedule::job(new RefreshInterestClustersJob)
+    ->weekly()
+    ->sundays()
+    ->at('02:00')
+    ->timezone('America/Sao_Paulo')
+    ->name('refresh-interest-clusters')
     ->withoutOverlapping();
 
 Schedule::command('rec:healthcheck')

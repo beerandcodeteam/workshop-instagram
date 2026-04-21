@@ -64,6 +64,31 @@ return [
         'weight_threshold' => env('REC_AV_WEIGHT_THRESHOLD', 1.0),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Interest clusters (US-033, US-006)
+    |--------------------------------------------------------------------------
+    |
+    | k-means sobre embeddings de posts com sinais positivos do usuário.
+    | k é escolhido em [k_min..k_max] via silhouette score.
+    |
+    */
+
+    'clusters' => [
+        'window_days' => env('REC_CLUSTERS_WINDOW_DAYS', 90),
+        'min_samples' => env('REC_CLUSTERS_MIN_SAMPLES', 30),
+        'k_min' => env('REC_CLUSTERS_K_MIN', 3),
+        'k_max' => env('REC_CLUSTERS_K_MAX', 7),
+        'max_iterations' => env('REC_CLUSTERS_MAX_ITERATIONS', 25),
+        'tolerance' => env('REC_CLUSTERS_TOLERANCE', 1e-4),
+        'count_delta_threshold' => env('REC_CLUSTERS_COUNT_DELTA', 20),
+        'per_cluster_limit' => env('REC_CLUSTERS_PER_LIMIT', 100),
+        'global_limit' => env('REC_CLUSTERS_GLOBAL_LIMIT', 300),
+        'coverage_top_k' => env('REC_CLUSTERS_COVERAGE_TOP_K', 20),
+        'coverage_min_ratio' => env('REC_CLUSTERS_COVERAGE_MIN_RATIO', 0.7),
+        'coverage_min_clusters' => env('REC_CLUSTERS_COVERAGE_MIN_CLUSTERS', 3),
+    ],
+
     'view_signals' => [
         'aggregation_window_minutes' => env('REC_VIEW_AGG_WINDOW_MINUTES', 10),
         'refresh_threshold_delta' => env('REC_VIEW_REFRESH_THRESHOLD', 1.0),

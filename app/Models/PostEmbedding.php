@@ -12,7 +12,7 @@ class PostEmbedding extends Model
     protected function casts(): array
     {
         return [
-            'embedding' => 'array'
+            'embedding' => 'array',
         ];
     }
 

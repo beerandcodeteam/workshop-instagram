@@ -20,6 +20,7 @@ class RecommendationService
         protected SeenFilter $seenFilter,
         protected ColdStartFeedBuilder $coldStart,
         protected ExplorationSlot $explorationSlot,
+        protected ClusterCoverageEnforcer $clusterCoverage,
         protected RankingTraceLogger $trace,
         protected KillSwitchService $killSwitch,
         protected ExperimentService $experiments,
@@ -99,10 +100,12 @@ class RecommendationService
 
         $afterExploration = $this->explorationSlot->enforce($afterQuota);
 
-        $final = array_slice($afterExploration, 0, $limit);
+        $afterCoverage = $this->clusterCoverage->enforce($user, $afterExploration);
+
+        $final = array_slice($afterCoverage, 0, $limit);
         $finalIds = array_map(static fn (RankedCandidate $c) => $c->candidate->postId, $final);
 
-        $rankedDroppedAfterLimit = array_slice($afterExploration, $limit);
+        $rankedDroppedAfterLimit = array_slice($afterCoverage, $limit);
 
         $rows = $this->buildRankedRows($requestId, $user, $final, $rankingVariant);
         $rows = array_merge(
