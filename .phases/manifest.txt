@@ -1,10 +1,3 @@
-phase-00-infraestrutura-de-recomenda-o-smoke-checks-sem-testes-pest.md|Phase 0 — Infraestrutura de recomendação (smoke checks, sem testes Pest)
-phase-01-log-append-only-de-intera-es-funda-o-dos-sinais.md|Phase 1 — Log append-only de interações (fundação dos sinais)
-phase-02-consolida-o-de-embedding-em-posts.md|Phase 2 — Consolidação de embedding em `posts`
-phase-03-user-embeddings-long-term-short-term-avoid.md|Phase 3 — User embeddings (long-term, short-term, avoid)
-phase-04-captura-de-dwell-time.md|Phase 4 — Captura de dwell time
-phase-05-feed-retrieval-em-dois-est-gios.md|Phase 5 — Feed: retrieval em dois estágios
-phase-06-modera-o-hide-report-retirada-autom-tica.md|Phase 6 — Moderação: hide, report, retirada automática
 phase-07-observabilidade-de-ranking-e-debug.md|Phase 7 — Observabilidade de ranking e debug
 phase-08-tooling-de-operador.md|Phase 8 — Tooling de operador
 phase-09-a-b-testing-random-serving.md|Phase 9 — A/B testing + random serving

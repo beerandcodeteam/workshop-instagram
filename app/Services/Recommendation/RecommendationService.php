@@ -3,8 +3,8 @@
 namespace App\Services\Recommendation;
 
 use App\Contracts\RankingTraceLogger;
+use App\Jobs\PersistRankingTracesJob;
 use App\Models\Post;
-use App\Models\RecommendationSource;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -45,16 +45,21 @@ class RecommendationService
             return $this->coldStartFeed($user, $limit, $requestId);
         }
 
-        $candidates = $this->candidateGenerator->generate($user);
+        $batch = $this->candidateGenerator->generateWithFiltered($user);
+        $candidates = $batch['kept'];
+        $filteredCandidates = $batch['filtered'];
 
         $this->trace->trace('feed.candidates', [
             'request_id' => $requestId,
             'user_id' => $user->id,
             'phase' => 'candidate_gen',
             'candidate_count' => count($candidates),
+            'filtered_count' => count($filteredCandidates),
         ]);
 
         if ($candidates === []) {
+            $this->queueTraces($this->buildFilteredRows($requestId, $user, $filteredCandidates));
+
             return new Collection;
         }
 
@@ -74,20 +79,33 @@ class RecommendationService
             ]);
         }
 
-        $ranked = $this->mmrReranker->applyMmr($ranked);
-        $ranked = $this->authorQuota->applyAuthorQuota($ranked);
-        $ranked = $this->explorationSlot->enforce($ranked);
+        $afterMmr = $this->mmrReranker->applyMmr($ranked);
+        $mmrDropped = $this->diff($ranked, $afterMmr);
 
-        $final = array_slice($ranked, 0, $limit);
+        $afterQuota = $this->authorQuota->applyAuthorQuota($afterMmr);
+        $quotaDropped = $this->diff($afterMmr, $afterQuota);
+
+        $afterExploration = $this->explorationSlot->enforce($afterQuota);
+
+        $final = array_slice($afterExploration, 0, $limit);
         $finalIds = array_map(static fn (RankedCandidate $c) => $c->candidate->postId, $final);
 
-        if ($finalIds === []) {
-            return new Collection;
+        $rankedDroppedAfterLimit = array_slice($afterExploration, $limit);
+
+        $rows = $this->buildRankedRows($requestId, $user, $final);
+        $rows = array_merge(
+            $rows,
+            $this->buildFilteredRankedRows($requestId, $user, $mmrDropped, 'mmr_dropped'),
+            $this->buildFilteredRankedRows($requestId, $user, $quotaDropped, 'quota_exceeded'),
+            $this->buildFilteredRankedRows($requestId, $user, $rankedDroppedAfterLimit, 'pagination_cut'),
+            $this->buildFilteredRows($requestId, $user, $filteredCandidates),
+        );
+
+        $this->queueTraces($rows);
+
+        if ($finalIds !== []) {
+            $this->seenFilter->markSeen($user, $finalIds);
         }
-
-        $this->persistLogs($requestId, $user, $final);
-
-        $this->seenFilter->markSeen($user, $finalIds);
 
         return $this->hydratePosts($finalIds);
     }
@@ -110,7 +128,7 @@ class RecommendationService
             return new Collection;
         }
 
-        $this->persistColdStartLogs($requestId, $user, $ids);
+        $this->queueTraces($this->buildColdStartRows($requestId, $user, $ids));
         $this->seenFilter->markSeen($user, $ids);
 
         return $this->hydratePosts($ids);
@@ -142,58 +160,142 @@ class RecommendationService
 
     /**
      * @param  list<RankedCandidate>  $ranked
+     * @return list<array<string, mixed>>
      */
-    private function persistLogs(string $requestId, User $user, array $ranked): void
+    private function buildRankedRows(string $requestId, User $user, array $ranked): array
     {
-        if ($ranked === []) {
-            return;
-        }
-
-        $sources = RecommendationSource::pluck('id', 'slug')->all();
+        $rows = [];
         $now = now();
 
-        $rows = [];
         foreach ($ranked as $index => $item) {
-            $sourceId = $sources[$item->candidate->source] ?? null;
-
             $rows[] = [
                 'request_id' => $requestId,
                 'user_id' => $user->id,
                 'post_id' => $item->candidate->postId,
-                'recommendation_source_id' => $sourceId,
+                'source_slug' => $item->candidate->source,
                 'score' => $item->score,
                 'rank_position' => $index,
-                'scores_breakdown' => json_encode($item->scoresBreakdown),
+                'scores_breakdown' => $item->scoresBreakdown,
+                'filtered_reason' => null,
                 'created_at' => $now,
             ];
         }
 
-        DB::table('recommendation_logs')->insert($rows);
+        return $rows;
+    }
+
+    /**
+     * @param  list<RankedCandidate>  $ranked
+     * @return list<array<string, mixed>>
+     */
+    private function buildFilteredRankedRows(string $requestId, User $user, array $ranked, string $reason): array
+    {
+        $rows = [];
+        $now = now();
+
+        foreach ($ranked as $item) {
+            $rows[] = [
+                'request_id' => $requestId,
+                'user_id' => $user->id,
+                'post_id' => $item->candidate->postId,
+                'source_slug' => $item->candidate->source,
+                'score' => $item->score,
+                'rank_position' => -1,
+                'scores_breakdown' => $item->scoresBreakdown,
+                'filtered_reason' => $reason,
+                'created_at' => $now,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param  list<array{candidate: Candidate, reason: string}>  $filtered
+     * @return list<array<string, mixed>>
+     */
+    private function buildFilteredRows(string $requestId, User $user, array $filtered): array
+    {
+        $rows = [];
+        $now = now();
+
+        foreach ($filtered as $entry) {
+            $rows[] = [
+                'request_id' => $requestId,
+                'user_id' => $user->id,
+                'post_id' => $entry['candidate']->postId,
+                'source_slug' => $entry['candidate']->source,
+                'score' => $entry['candidate']->sourceScore,
+                'rank_position' => -1,
+                'scores_breakdown' => ['source_score' => $entry['candidate']->sourceScore],
+                'filtered_reason' => $entry['reason'],
+                'created_at' => $now,
+            ];
+        }
+
+        return $rows;
     }
 
     /**
      * @param  list<int>  $postIds
+     * @return list<array<string, mixed>>
      */
-    private function persistColdStartLogs(string $requestId, User $user, array $postIds): void
+    private function buildColdStartRows(string $requestId, User $user, array $postIds): array
     {
-        $sourceId = RecommendationSource::where('slug', 'trending')->value('id');
-
-        $now = now();
         $rows = [];
+        $now = now();
+
         foreach ($postIds as $index => $postId) {
             $rows[] = [
                 'request_id' => $requestId,
                 'user_id' => $user->id,
                 'post_id' => $postId,
-                'recommendation_source_id' => $sourceId,
+                'source_slug' => 'trending',
                 'score' => 0,
                 'rank_position' => $index,
-                'scores_breakdown' => json_encode(['cold_start' => true]),
+                'scores_breakdown' => ['cold_start' => true],
+                'filtered_reason' => null,
                 'created_at' => $now,
             ];
         }
 
-        DB::table('recommendation_logs')->insert($rows);
+        return $rows;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     */
+    private function queueTraces(array $rows): void
+    {
+        if ($rows === []) {
+            return;
+        }
+
+        PersistRankingTracesJob::dispatch($rows);
+    }
+
+    /**
+     * Returns items present in $before but not in $after (matched by post_id).
+     *
+     * @param  list<RankedCandidate>  $before
+     * @param  list<RankedCandidate>  $after
+     * @return list<RankedCandidate>
+     */
+    private function diff(array $before, array $after): array
+    {
+        $afterIds = [];
+        foreach ($after as $item) {
+            $afterIds[$item->candidate->postId] = true;
+        }
+
+        $dropped = [];
+        foreach ($before as $item) {
+            if (! isset($afterIds[$item->candidate->postId])) {
+                $dropped[] = $item;
+            }
+        }
+
+        return $dropped;
     }
 
     /**

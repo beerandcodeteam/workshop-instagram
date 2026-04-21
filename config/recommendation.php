@@ -81,4 +81,15 @@ return [
         'window_size' => env('REC_EXPLORATION_WINDOW_SIZE', 10),
     ],
 
+    'source_reasons' => [
+        'ann_long_term' => 'parece com conteúdos que você curtiu ao longo do tempo',
+        'ann_short_term' => 'parecido com o que você curtiu nas últimas horas',
+        'ann_cluster' => 'combina com um dos seus interesses',
+        'trending' => 'está em alta entre os usuários agora',
+        'following' => 'é de alguém que você segue',
+        'locality' => 'é popular na sua região',
+        'explore' => 'é algo novo para ampliar suas descobertas',
+        'control' => 'foi escolhido aleatoriamente (teste A/B)',
+    ],
+
 ];

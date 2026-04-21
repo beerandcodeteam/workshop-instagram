@@ -55,7 +55,7 @@
             </p>
         </div>
 
-        @if ($this->canManage)
+        @if ($this->canManage || auth()->check())
             <div
                 x-data="{ open: false, confirming: false }"
                 @click.outside="open = false; confirming = false;"
@@ -80,25 +80,31 @@
                     x-show="open && ! confirming"
                     x-cloak
                     x-transition.opacity
-                    class="absolute right-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg"
+                    class="absolute right-0 top-full z-20 mt-1 w-56 overflow-hidden rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg"
                     role="menu"
                 >
-                    <livewire:post.edit-caption :post="$post" :key="'post-edit-caption-'.$post->id" />
+                    @auth
+                        <livewire:post.why-did-i-see-this :post="$post" :key="'post-why-'.$post->id" />
+                    @endauth
 
-                    <button
-                        type="button"
-                        @click="confirming = true"
-                        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[var(--color-danger)] hover:bg-[var(--color-neutral-100)] focus:outline-none focus:bg-[var(--color-neutral-100)]"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <polyline points="3 6 5 6 21 6" />
-                            <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" />
-                            <path d="M10 11v6" />
-                            <path d="M14 11v6" />
-                            <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
-                        </svg>
-                        <span>Excluir</span>
-                    </button>
+                    @if ($this->canManage)
+                        <livewire:post.edit-caption :post="$post" :key="'post-edit-caption-'.$post->id" />
+
+                        <button
+                            type="button"
+                            @click="confirming = true"
+                            class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[var(--color-danger)] hover:bg-[var(--color-neutral-100)] focus:outline-none focus:bg-[var(--color-neutral-100)]"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" />
+                                <path d="M10 11v6" />
+                                <path d="M14 11v6" />
+                                <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+                            </svg>
+                            <span>Excluir</span>
+                        </button>
+                    @endif
                 </div>
 
                 <div

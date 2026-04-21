@@ -100,6 +100,20 @@ class CandidateGenerator
      */
     public function generate(User $user): array
     {
+        return $this->generateWithFiltered($user)['kept'];
+    }
+
+    /**
+     * Same as generate(), but also returns candidates that were hard-filtered
+     * along with the reason they were excluded.
+     *
+     * @return array{
+     *   kept: array<int, Candidate>,
+     *   filtered: list<array{candidate: Candidate, reason: string}>,
+     * }
+     */
+    public function generateWithFiltered(User $user): array
+    {
         $longLimit = (int) config('recommendation.candidates.ann_long_term_limit', 300);
         $shortLimit = (int) config('recommendation.candidates.ann_short_term_limit', 200);
         $trendingLimit = (int) config('recommendation.candidates.trending_limit', 100);
@@ -128,7 +142,7 @@ class CandidateGenerator
         }
 
         if ($byPost === []) {
-            return [];
+            return ['kept' => [], 'filtered' => []];
         }
 
         return $this->applyHardFilters($user, $byPost);
@@ -136,7 +150,10 @@ class CandidateGenerator
 
     /**
      * @param  array<int, Candidate>  $byPost
-     * @return array<int, Candidate>
+     * @return array{
+     *   kept: array<int, Candidate>,
+     *   filtered: list<array{candidate: Candidate, reason: string}>,
+     * }
      */
     private function applyHardFilters(User $user, array $byPost): array
     {
@@ -144,36 +161,47 @@ class CandidateGenerator
 
         $postIds = array_keys($byPost);
 
-        $validIds = DB::table('posts')
+        $metadata = DB::table('posts')
             ->whereIn('id', $postIds)
-            ->whereNotNull('embedding')
-            ->whereNull('deleted_at')
-            ->where('user_id', '!=', $user->id)
-            ->where('reports_count', '<', $reportsThreshold)
-            ->pluck('id')
-            ->all();
-
-        $validMap = [];
-        foreach ($validIds as $id) {
-            $validMap[(int) $id] = true;
-        }
+            ->get(['id', 'user_id', 'embedding', 'deleted_at', 'reports_count'])
+            ->keyBy('id');
 
         $seenPostIds = $this->seenFilter->seenFor($user);
 
-        $result = [];
+        $kept = [];
+        $filtered = [];
+
         foreach ($byPost as $postId => $candidate) {
-            if (! isset($validMap[$postId])) {
+            $post = $metadata->get($postId);
+
+            if ($post === null || $post->embedding === null || $post->deleted_at !== null) {
+                $filtered[] = ['candidate' => $candidate, 'reason' => 'missing_embedding'];
+
+                continue;
+            }
+
+            if ((int) $post->user_id === (int) $user->id) {
+                $filtered[] = ['candidate' => $candidate, 'reason' => 'self_author'];
+
+                continue;
+            }
+
+            if ((int) $post->reports_count >= $reportsThreshold) {
+                $filtered[] = ['candidate' => $candidate, 'reason' => 'reports_threshold'];
+
                 continue;
             }
 
             if (isset($seenPostIds[$postId])) {
+                $filtered[] = ['candidate' => $candidate, 'reason' => 'already_seen'];
+
                 continue;
             }
 
-            $result[$postId] = $candidate;
+            $kept[$postId] = $candidate;
         }
 
-        return $result;
+        return ['kept' => $kept, 'filtered' => $filtered];
     }
 
     /**
