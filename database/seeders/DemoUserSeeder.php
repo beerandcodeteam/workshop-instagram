@@ -14,9 +14,7 @@ class DemoUserSeeder extends Seeder
 {
     use WithoutModelEvents;
 
-    public int $userCount = 5000;
-
-    public int $postsPerUser = 2;
+    public int $userCount = 300;
 
     public int $userChunk = 500;
 
@@ -61,11 +59,10 @@ class DemoUserSeeder extends Seeder
             'video' => PostType::where('slug', 'video')->value('id'),
         ];
 
-        $totalPosts = $this->userCount * $this->postsPerUser;
-        $typePlan = $this->buildTypePlan($totalPosts);
+        $contentPlan = $this->buildContentPlan($imagesPool, $videosPool, $textPool);
 
         $userIds = $this->insertUsers($this->userCount);
-        $this->insertPostsAndMedia($userIds, $typePlan, $typeIds, $imagesPool, $videosPool, $textPool);
+        $this->insertPostsAndMedia($userIds, $contentPlan, $typeIds);
     }
 
     /**
@@ -108,19 +105,41 @@ class DemoUserSeeder extends Seeder
     }
 
     /**
-     * @return array<int, 'text'|'image'|'video'>
+     * Each content item (image, video, text) is used exactly once and shuffled,
+     * so posts are distributed across users without any repetition.
+     *
+     * @param  array<int, array{id: int, path: string, tags: string, user: string, caption?: string}>  $imagesPool
+     * @param  array<int, array{id: int, path: string, tags: string, user: string, caption?: string}>  $videosPool
+     * @param  array<int, string>  $textPool
+     * @return array<int, array{type: 'text'|'image'|'video', body: ?string, file_path: ?string}>
      */
-    private function buildTypePlan(int $totalPosts): array
+    private function buildContentPlan(array $imagesPool, array $videosPool, array $textPool): array
     {
-        $imageCount = (int) round($totalPosts * 0.4);
-        $videoCount = (int) round($totalPosts * 0.2);
-        $textCount = $totalPosts - $imageCount - $videoCount;
+        $plan = [];
 
-        $plan = array_merge(
-            array_fill(0, $imageCount, 'image'),
-            array_fill(0, $videoCount, 'video'),
-            array_fill(0, $textCount, 'text'),
-        );
+        foreach ($imagesPool as $item) {
+            $plan[] = [
+                'type' => 'image',
+                'body' => isset($item['caption']) && fake()->boolean(85) ? $item['caption'] : null,
+                'file_path' => $item['path'],
+            ];
+        }
+
+        foreach ($videosPool as $item) {
+            $plan[] = [
+                'type' => 'video',
+                'body' => isset($item['caption']) && fake()->boolean(85) ? $item['caption'] : null,
+                'file_path' => $item['path'],
+            ];
+        }
+
+        foreach ($textPool as $text) {
+            $plan[] = [
+                'type' => 'text',
+                'body' => $text,
+                'file_path' => null,
+            ];
+        }
 
         shuffle($plan);
 
@@ -183,59 +202,41 @@ class DemoUserSeeder extends Seeder
 
     /**
      * @param  array<int, int>  $userIds
-     * @param  array<int, 'text'|'image'|'video'>  $typePlan
+     * @param  array<int, array{type: 'text'|'image'|'video', body: ?string, file_path: ?string}>  $contentPlan
      * @param  array<string, int>  $typeIds
-     * @param  array<int, array{id: int, path: string, tags: string, user: string, caption?: string}>  $imagesPool
-     * @param  array<int, array{id: int, path: string, tags: string, user: string, caption?: string}>  $videosPool
-     * @param  array<int, string>  $textPool
      */
     private function insertPostsAndMedia(
         array $userIds,
-        array $typePlan,
+        array $contentPlan,
         array $typeIds,
-        array $imagesPool,
-        array $videosPool,
-        array $textPool,
     ): void {
-        $totalPosts = count($typePlan);
+        $totalPosts = count($contentPlan);
         $this->say('info', "Creating {$totalPosts} posts and media...");
 
         $now = Carbon::now();
         $startPostId = (int) (DB::table('posts')->max('id') ?? 0);
+        $userCount = count($userIds);
 
         $postRows = [];
         $mediaPlan = [];
-        $typeIndex = 0;
 
-        foreach ($userIds as $userId) {
-            for ($p = 0; $p < $this->postsPerUser; $p++) {
-                $type = $typePlan[$typeIndex++];
-                $createdAt = $now->copy()->subMinutes(random_int(0, 60 * 24 * 30));
+        foreach ($contentPlan as $index => $content) {
+            $userId = $userIds[$index % $userCount];
+            $createdAt = $now->copy()->subMinutes(random_int(0, 60 * 24 * 30));
 
-                $body = null;
+            $postRows[] = [
+                'user_id' => $userId,
+                'post_type_id' => $typeIds[$content['type']],
+                'body' => $content['body'],
+                'created_at' => $createdAt,
+                'updated_at' => $createdAt,
+            ];
 
-                if ($type === 'text') {
-                    $body = $textPool[array_rand($textPool)];
-                } else {
-                    $pool = $type === 'image' ? $imagesPool : $videosPool;
-                    $hit = $pool[array_rand($pool)];
-                    $body = isset($hit['caption']) && fake()->boolean(85) ? $hit['caption'] : null;
-                }
-
-                $postRows[] = [
-                    'user_id' => $userId,
-                    'post_type_id' => $typeIds[$type],
-                    'body' => $body,
+            if ($content['file_path'] !== null) {
+                $mediaPlan[$index] = [
+                    'file_path' => $content['file_path'],
                     'created_at' => $createdAt,
-                    'updated_at' => $createdAt,
                 ];
-
-                if ($type === 'image' || $type === 'video') {
-                    $mediaPlan[count($postRows) - 1] = [
-                        'file_path' => $hit['path'],
-                        'created_at' => $createdAt,
-                    ];
-                }
             }
         }
 

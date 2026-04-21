@@ -36,7 +36,7 @@ cp .env.example .env
 
 ## Popular com dados de demonstração
 
-O seed cria 5000 usuários e 10000 posts com mídias reais (imagens e vídeos do Pixabay) e legendas contextualizadas em português.
+O seed cria 300 usuários que dividem entre si os 1250 conteúdos (600 imagens + 400 vídeos + 250 textos) do Pixabay sem repetição, com legendas contextualizadas em português.
 
 As mídias (7.24GB) não estão no repositório — baixe o `seed-media.zip` do Google Drive do workshop e coloque na **raiz do projeto**.
 
