@@ -22,6 +22,7 @@ class RecommendationService
         protected ExplorationSlot $explorationSlot,
         protected RankingTraceLogger $trace,
         protected KillSwitchService $killSwitch,
+        protected ExperimentService $experiments,
     ) {}
 
     /**
@@ -46,8 +47,14 @@ class RecommendationService
             return $this->fallbackChronologicalFeed($user, $limit, $requestId);
         }
 
+        if ($this->experiments->variantFor($user, ExperimentService::RANDOM_SERVING) === ExperimentService::VARIANT_CONTROL) {
+            return $this->controlGroupFeed($user, $limit, $requestId);
+        }
+
+        $rankingVariant = $this->experiments->variantFor($user, ExperimentService::RANKING_FORMULA_V2);
+
         if ($this->coldStart->isColdStart($user)) {
-            return $this->coldStartFeed($user, $limit, $requestId);
+            return $this->coldStartFeed($user, $limit, $requestId, $rankingVariant);
         }
 
         $batch = $this->candidateGenerator->generateWithFiltered($user);
@@ -63,14 +70,14 @@ class RecommendationService
         ]);
 
         if ($candidates === []) {
-            $this->queueTraces($this->buildFilteredRows($requestId, $user, $filteredCandidates));
+            $this->queueTraces($this->buildFilteredRows($requestId, $user, $filteredCandidates, $rankingVariant));
 
             return new Collection;
         }
 
         $alpha = $this->promotedColdStartAlpha($user) ?? $this->ranker->resolveAlpha($user);
 
-        $ranked = $this->ranker->rank($candidates, $user, alphaOverride: $alpha);
+        $ranked = $this->ranker->rank($candidates, $user, alphaOverride: $alpha, variant: $rankingVariant);
 
         foreach ($ranked as $index => $item) {
             $this->trace->trace('feed.ranked', [
@@ -97,13 +104,13 @@ class RecommendationService
 
         $rankedDroppedAfterLimit = array_slice($afterExploration, $limit);
 
-        $rows = $this->buildRankedRows($requestId, $user, $final);
+        $rows = $this->buildRankedRows($requestId, $user, $final, $rankingVariant);
         $rows = array_merge(
             $rows,
-            $this->buildFilteredRankedRows($requestId, $user, $mmrDropped, 'mmr_dropped'),
-            $this->buildFilteredRankedRows($requestId, $user, $quotaDropped, 'quota_exceeded'),
-            $this->buildFilteredRankedRows($requestId, $user, $rankedDroppedAfterLimit, 'pagination_cut'),
-            $this->buildFilteredRows($requestId, $user, $filteredCandidates),
+            $this->buildFilteredRankedRows($requestId, $user, $mmrDropped, 'mmr_dropped', $rankingVariant),
+            $this->buildFilteredRankedRows($requestId, $user, $quotaDropped, 'quota_exceeded', $rankingVariant),
+            $this->buildFilteredRankedRows($requestId, $user, $rankedDroppedAfterLimit, 'pagination_cut', $rankingVariant),
+            $this->buildFilteredRows($requestId, $user, $filteredCandidates, $rankingVariant),
         );
 
         $this->queueTraces($rows);
@@ -142,7 +149,7 @@ class RecommendationService
     /**
      * @return Collection<int, Post>
      */
-    private function coldStartFeed(User $user, int $limit, string $requestId): Collection
+    private function coldStartFeed(User $user, int $limit, string $requestId, string $variant = ExperimentService::VARIANT_A): Collection
     {
         $ids = $this->coldStart->build($user, $limit);
 
@@ -157,10 +164,43 @@ class RecommendationService
             return new Collection;
         }
 
-        $this->queueTraces($this->buildColdStartRows($requestId, $user, $ids));
+        $this->queueTraces($this->buildColdStartRows($requestId, $user, $ids, $variant));
         $this->seenFilter->markSeen($user, $ids);
 
         return $this->hydratePosts($ids);
+    }
+
+    /**
+     * US-024: 1% dos usuários (rotação diária) recebem feed cronológico puro
+     * como grupo de controle para medir uplift do pipeline de recomendação.
+     *
+     * @return Collection<int, Post>
+     */
+    private function controlGroupFeed(User $user, int $limit, string $requestId): Collection
+    {
+        $this->trace->trace('feed.control_group', [
+            'request_id' => $requestId,
+            'user_id' => $user->id,
+            'phase' => 'control_group',
+            'limit' => $limit,
+        ]);
+
+        $posts = Post::query()
+            ->with(['author', 'type', 'media', 'likes:id,post_id,user_id'])
+            ->withCount(['likes', 'comments'])
+            ->where('user_id', '!=', $user->id)
+            ->latest('posts.created_at')
+            ->limit($limit)
+            ->get();
+
+        $ids = $posts->pluck('id')->all();
+
+        if ($ids !== []) {
+            $this->queueTraces($this->buildControlGroupRows($requestId, $user, $ids));
+            $this->seenFilter->markSeen($user, $ids);
+        }
+
+        return $posts;
     }
 
     /**
@@ -191,7 +231,7 @@ class RecommendationService
      * @param  list<RankedCandidate>  $ranked
      * @return list<array<string, mixed>>
      */
-    private function buildRankedRows(string $requestId, User $user, array $ranked): array
+    private function buildRankedRows(string $requestId, User $user, array $ranked, string $variant = ExperimentService::VARIANT_A): array
     {
         $rows = [];
         $now = now();
@@ -206,6 +246,7 @@ class RecommendationService
                 'rank_position' => $index,
                 'scores_breakdown' => $item->scoresBreakdown,
                 'filtered_reason' => null,
+                'experiment_variant' => $variant,
                 'created_at' => $now,
             ];
         }
@@ -217,7 +258,7 @@ class RecommendationService
      * @param  list<RankedCandidate>  $ranked
      * @return list<array<string, mixed>>
      */
-    private function buildFilteredRankedRows(string $requestId, User $user, array $ranked, string $reason): array
+    private function buildFilteredRankedRows(string $requestId, User $user, array $ranked, string $reason, string $variant = ExperimentService::VARIANT_A): array
     {
         $rows = [];
         $now = now();
@@ -232,6 +273,7 @@ class RecommendationService
                 'rank_position' => -1,
                 'scores_breakdown' => $item->scoresBreakdown,
                 'filtered_reason' => $reason,
+                'experiment_variant' => $variant,
                 'created_at' => $now,
             ];
         }
@@ -243,7 +285,7 @@ class RecommendationService
      * @param  list<array{candidate: Candidate, reason: string}>  $filtered
      * @return list<array<string, mixed>>
      */
-    private function buildFilteredRows(string $requestId, User $user, array $filtered): array
+    private function buildFilteredRows(string $requestId, User $user, array $filtered, string $variant = ExperimentService::VARIANT_A): array
     {
         $rows = [];
         $now = now();
@@ -258,6 +300,7 @@ class RecommendationService
                 'rank_position' => -1,
                 'scores_breakdown' => ['source_score' => $entry['candidate']->sourceScore],
                 'filtered_reason' => $entry['reason'],
+                'experiment_variant' => $variant,
                 'created_at' => $now,
             ];
         }
@@ -269,7 +312,7 @@ class RecommendationService
      * @param  list<int>  $postIds
      * @return list<array<string, mixed>>
      */
-    private function buildColdStartRows(string $requestId, User $user, array $postIds): array
+    private function buildColdStartRows(string $requestId, User $user, array $postIds, string $variant = ExperimentService::VARIANT_A): array
     {
         $rows = [];
         $now = now();
@@ -284,6 +327,34 @@ class RecommendationService
                 'rank_position' => $index,
                 'scores_breakdown' => ['cold_start' => true],
                 'filtered_reason' => null,
+                'experiment_variant' => $variant,
+                'created_at' => $now,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param  list<int>  $postIds
+     * @return list<array<string, mixed>>
+     */
+    private function buildControlGroupRows(string $requestId, User $user, array $postIds): array
+    {
+        $rows = [];
+        $now = now();
+
+        foreach ($postIds as $index => $postId) {
+            $rows[] = [
+                'request_id' => $requestId,
+                'user_id' => $user->id,
+                'post_id' => $postId,
+                'source_slug' => null,
+                'score' => 0,
+                'rank_position' => $index,
+                'scores_breakdown' => ['control_group' => true],
+                'filtered_reason' => null,
+                'experiment_variant' => ExperimentService::VARIANT_CONTROL,
                 'created_at' => $now,
             ];
         }

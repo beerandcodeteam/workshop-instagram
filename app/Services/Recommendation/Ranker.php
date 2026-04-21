@@ -13,13 +13,14 @@ class Ranker
      * @param  list<float>  $postEmbedding
      * @return array{0: float, 1: array<string, float>}
      */
-    public function score(array $postEmbedding, User $user, ?float $alphaOverride = null, float $sourceTrendingScore = 0.0, float $recencyBoost = 0.0, float $contextBoost = 0.0): array
+    public function score(array $postEmbedding, User $user, ?float $alphaOverride = null, float $sourceTrendingScore = 0.0, float $recencyBoost = 0.0, float $contextBoost = 0.0, string $variant = ExperimentService::VARIANT_A): array
     {
         $alpha = $alphaOverride ?? $this->resolveAlpha($user);
-        $beta = (float) config('recommendation.score.beta_avoid', 0.5);
-        $gamma = (float) config('recommendation.score.gamma_recency', 0.15);
-        $delta = (float) config('recommendation.score.delta_trending', 0.1);
-        $epsilon = (float) config('recommendation.score.epsilon_context', 0.05);
+        $coefficients = $this->coefficients($variant);
+        $beta = $coefficients['beta'];
+        $gamma = $coefficients['gamma'];
+        $delta = $coefficients['delta'];
+        $epsilon = $coefficients['epsilon'];
 
         $lt = $this->safeVector($user->long_term_embedding);
         $st = $this->safeVector($user->short_term_embedding);
@@ -59,6 +60,11 @@ class Ranker
             'recency_boost' => $recencyBoost,
             'trending_boost' => $sourceTrendingScore,
             'context_boost' => $contextBoost,
+            'variant' => $variant,
+            'beta' => $beta,
+            'gamma' => $gamma,
+            'delta' => $delta,
+            'epsilon' => $epsilon,
             'final' => $score,
         ];
 
@@ -71,7 +77,7 @@ class Ranker
      * @param  array<int, Candidate>  $candidates  indexed by post_id
      * @return list<RankedCandidate>
      */
-    public function rank(array $candidates, User $user, ?float $alphaOverride = null): array
+    public function rank(array $candidates, User $user, ?float $alphaOverride = null, string $variant = ExperimentService::VARIANT_A): array
     {
         if ($candidates === []) {
             return [];
@@ -133,6 +139,7 @@ class Ranker
                 sourceTrendingScore: $trendingBoost,
                 recencyBoost: $recencyBoost,
                 contextBoost: $contextBoost,
+                variant: $variant,
             );
 
             $breakdown['source'] = $candidate->source;
@@ -173,6 +180,33 @@ class Ranker
         $halfLifeHours = (float) config('recommendation.score.recency_half_life_hours', 6);
 
         return exp(-log(2) * $ageHours / $halfLifeHours);
+    }
+
+    /**
+     * @return array{beta: float, gamma: float, delta: float, epsilon: float}
+     */
+    private function coefficients(string $variant): array
+    {
+        $coefficients = [
+            'beta' => (float) config('recommendation.score.beta_avoid', 0.5),
+            'gamma' => (float) config('recommendation.score.gamma_recency', 0.15),
+            'delta' => (float) config('recommendation.score.delta_trending', 0.1),
+            'epsilon' => (float) config('recommendation.score.epsilon_context', 0.05),
+        ];
+
+        if ($variant !== ExperimentService::VARIANT_B) {
+            return $coefficients;
+        }
+
+        $overrides = (array) config('recommendation.experiments.ranking_formula_v2.variant_b', []);
+
+        foreach (['beta_avoid' => 'beta', 'gamma_recency' => 'gamma', 'delta_trending' => 'delta', 'epsilon_context' => 'epsilon'] as $configKey => $localKey) {
+            if (array_key_exists($configKey, $overrides)) {
+                $coefficients[$localKey] = (float) $overrides[$configKey];
+            }
+        }
+
+        return $coefficients;
     }
 
     /**

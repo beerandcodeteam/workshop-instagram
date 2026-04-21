@@ -226,4 +226,33 @@ return [
         explode(',', (string) env('REC_ADMIN_EMAILS', ''))
     )),
 
+    /*
+    |--------------------------------------------------------------------------
+    | A/B testing (US-021, US-024)
+    |--------------------------------------------------------------------------
+    |
+    | Experimentos ativos. A atribuição é determinística por hash
+    | (user_id + experiment_name, opcionalmente + dia) sem necessidade de
+    | gravar em banco. A tabela `recommendation_experiments` existe para
+    | casos de atribuição persistente/auditoria.
+    |
+    */
+
+    'experiments' => [
+        'random_serving' => [
+            'enabled' => env('REC_EXPERIMENT_RANDOM_SERVING_ENABLED', true),
+            'control_pct' => env('REC_EXPERIMENT_RANDOM_SERVING_PCT', 1),
+        ],
+        'ranking_formula_v2' => [
+            'enabled' => env('REC_EXPERIMENT_RANKING_V2_ENABLED', false),
+            'variant_b_pct' => env('REC_EXPERIMENT_RANKING_V2_PCT', 50),
+            'variant_b' => [
+                'beta_avoid' => env('REC_EXPERIMENT_V2_BETA', 0.3),
+                'gamma_recency' => env('REC_EXPERIMENT_V2_GAMMA', 0.5),
+                'delta_trending' => env('REC_EXPERIMENT_V2_DELTA', 0.25),
+                'epsilon_context' => env('REC_EXPERIMENT_V2_EPSILON', 0.0),
+            ],
+        ],
+    ],
+
 ];
