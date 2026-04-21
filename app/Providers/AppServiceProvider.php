@@ -2,6 +2,10 @@
 
 namespace App\Providers;
 
+use App\Contracts\EmbeddingServiceContract;
+use App\Contracts\RankingTraceLogger;
+use App\Logging\ChannelRankingTraceLogger;
+use App\Services\GeminiEmbeddingService;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 
@@ -12,7 +16,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(EmbeddingServiceContract::class, GeminiEmbeddingService::class);
+        $this->app->bind(RankingTraceLogger::class, ChannelRankingTraceLogger::class);
     }
 
     /**

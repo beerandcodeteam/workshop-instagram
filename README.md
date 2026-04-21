@@ -83,3 +83,7 @@ cd /caminho/pro/minio/data && zip -r -0 seed-media.zip seed/
 ```
 
 Atenção: `app:seed-pixabay-media` **não regera as legendas** — após rodar, as captions no manifest estarão faltando e o pipeline de geração via Claude Code precisa ser rodado de novo.
+
+## Como ler um ranking trace
+
+Cada requisição de feed gera um `request_id` (UUID, propagado via header `X-Request-Id`) e o `RankingTraceLogger` emite eventos JSON no canal `recommendation` (`storage/logs/recommendation-YYYY-MM-DD.log`). Filtre por `request_id` e ordene por `phase` (`candidate_gen` → `ranking` → `mmr` → `quota` → `response`) para reconstruir, post a post, qual fonte gerou o candidato (`source`), os scores parciais e finais (`scores`) e a posição final (`rank_position`) — útil para responder "por que (não) recomendei isso?".

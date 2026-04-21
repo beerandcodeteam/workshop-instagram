@@ -15,7 +15,13 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->call(PostTypeSeeder::class);
+        $this->call([
+            PostTypeSeeder::class,
+            InteractionTypeSeeder::class,
+            EmbeddingModelSeeder::class,
+            RecommendationSourceSeeder::class,
+            MediaTypeSeeder::class,
+        ]);
 
         User::factory()->create([
             'name' => 'Test User',

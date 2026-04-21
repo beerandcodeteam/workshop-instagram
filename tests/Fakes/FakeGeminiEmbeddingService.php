@@ -6,7 +6,7 @@ use App\Services\GeminiEmbeddingService;
 
 class FakeGeminiEmbeddingService extends GeminiEmbeddingService
 {
-    public function embed(array $parts, $task_type = 'RETRIEVAL_DOCUMENT')
+    public function embed(array $parts, string $taskType = 'RETRIEVAL_DOCUMENT'): array
     {
         $dimensions = (int) config('services.gemini.embedding.dimensions', 1536);
 

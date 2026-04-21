@@ -10,14 +10,22 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Prism\Prism\ValueObjects\Embedding;
 
-#[Fillable(['user_id', 'post_type_id', 'body'])]
+#[Fillable(['user_id', 'post_type_id', 'body', 'embedding', 'embedding_updated_at', 'embedding_model_id', 'reports_count'])]
 #[ObservedBy(PostObserver::class)]
 class Post extends Model
 {
     /** @use HasFactory<PostFactory> */
     use HasFactory;
+
+    protected function casts(): array
+    {
+        return [
+            'embedding' => 'array',
+            'embedding_updated_at' => 'datetime',
+            'reports_count' => 'integer',
+        ];
+    }
 
     public function author(): BelongsTo
     {
@@ -47,5 +55,20 @@ class Post extends Model
     public function postEmbeddings(): HasMany
     {
         return $this->hasMany(PostEmbedding::class);
+    }
+
+    public function interactions(): HasMany
+    {
+        return $this->hasMany(PostInteraction::class);
+    }
+
+    public function reports(): HasMany
+    {
+        return $this->hasMany(Report::class);
+    }
+
+    public function embeddingModel(): BelongsTo
+    {
+        return $this->belongsTo(EmbeddingModel::class);
     }
 }
