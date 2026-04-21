@@ -121,8 +121,8 @@ class CreateModal extends Component
 
         $duration = $videoProbeService->getDurationSeconds($this->videoForm->video->getRealPath());
 
-        if ($duration !== null && $duration > 60.0) {
-            $this->addError('videoForm.video', 'O vídeo deve ter no máximo 60 segundos.');
+        if ($duration !== null && $duration > 300.0) {
+            $this->addError('videoForm.video', 'O vídeo deve ter no máximo 300 segundos.');
 
             return;
         }

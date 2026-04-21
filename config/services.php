@@ -35,4 +35,15 @@ return [
         ],
     ],
 
+    'gemini' => [
+        'key' => env('GEMINI_API_KEY'),
+        'embedding' => [
+            'model' => env('GEMINI_EMBEDDING_MODEL', 'gemini-embedding-2-preview'),
+            'dimensions' => (int) env('GEMINI_EMBEDDING_DIMENSIONS', 1536),
+            'endpoint' => 'https://generativelanguage.googleapis.com/v1beta/models',
+            'max_images_per_request' => 6,
+            'timeout' => 30,
+        ],
+    ],
+
 ];
