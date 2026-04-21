@@ -39,7 +39,7 @@ class Index extends Component
 
     public function render()
     {
-        $viewerCentroid = auth()->user()?->embedding;
+        $viewerCentroid = auth()->user()?->long_term_embedding;
 
         $query = Post::query()
             ->select('posts.*')

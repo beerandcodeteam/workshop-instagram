@@ -75,7 +75,7 @@ test('feed ranks posts by cosine similarity to the viewer centroid', function ()
 
     $centroid = array_fill(0, $dims, 0.0);
     $centroid[0] = 1.0;
-    $viewer->update(['embedding' => $centroid]);
+    $viewer->update(['long_term_embedding' => $centroid]);
 
     $this->actingAs($viewer);
 

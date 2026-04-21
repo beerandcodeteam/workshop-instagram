@@ -16,7 +16,6 @@ use Illuminate\Notifications\Notifiable;
     'name',
     'email',
     'password',
-    'embedding',
     'long_term_embedding',
     'long_term_embedding_updated_at',
     'long_term_embedding_model_id',
@@ -43,7 +42,6 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            'embedding' => 'array',
             'long_term_embedding' => 'array',
             'long_term_embedding_updated_at' => 'datetime',
             'short_term_embedding' => 'array',
