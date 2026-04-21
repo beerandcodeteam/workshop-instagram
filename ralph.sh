@@ -41,7 +41,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-INPUT_FILE="${INPUT_FILE:-docs/project-phases.md}"
+INPUT_FILE="${INPUT_FILE:-docs/recomendacao/04-project-phases.md}"
 
 if [[ "$ENGINE" != "codex" && "$ENGINE" != "claude" ]]; then
   echo "Engine invalida: $ENGINE. Use 'codex' ou 'claude'."
@@ -159,21 +159,23 @@ build_prompt_file() {
   local prompt_file="$PROMPT_DIR/${phase_file%.md}.txt"
 
   cat > "$prompt_file" <<PROMPT
-Voce e um desenvolvedor Laravel senior.
+Voce e um desenvolvedor Laravel senior implementando o sistema de recomendacao baseado em embeddings multimodais Gemini.
 
 ## Stack do projeto
 - Laravel 13, PHP 8.5
 - Livewire 4 (full-page components com pages:: prefix)
 - Pest PHP 4 (testes)
 - Tailwind CSS 4 (via @theme no app.css)
-- pgsql (via Laravel Sail)
+- pgsql + pgvector (via Laravel Sail)
+- Redis + Horizon (fila)
 - Interface em pt-BR
 
 ## Arquivos de referencia importantes
 - CLAUDE.md — regras obrigatorias do projeto (LEIA PRIMEIRO)
-- docs/project-phases.md — plano completo de fases
-- docs/user-stories.md — user stories
-- docs/project-description.md — descricao geral
+- docs/recomendacao/01-overview.md — arquitetura alvo do sistema de recomendacao
+- docs/recomendacao/02-user-stories.md — historias de usuario (US-001..US-034)
+- docs/recomendacao/03-database-schema.md — DBML alvo (lookups, post_interactions, embeddings inline)
+- docs/recomendacao/04-project-phases.md — plano completo de fases (este arquivo)
 
 ## Sua tarefa agora
 Implemente COMPLETAMENTE a fase descrita abaixo.
