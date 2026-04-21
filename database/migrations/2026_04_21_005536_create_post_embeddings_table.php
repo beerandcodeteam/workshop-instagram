@@ -17,7 +17,7 @@ return new class extends Migration
 
         Schema::create('post_embeddings', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('post_id')->constrained();
+            $table->foreignId('post_id')->constrained()->cascadeOnDelete();
             $table->vector('embedding', 1536);
             $table->timestamps();
         });

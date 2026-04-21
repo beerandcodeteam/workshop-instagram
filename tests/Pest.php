@@ -1,6 +1,8 @@
 <?php
 
+use App\Services\GeminiEmbeddingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Fakes\FakeGeminiEmbeddingService;
 use Tests\TestCase;
 
 /*
@@ -16,6 +18,9 @@ use Tests\TestCase;
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
+    ->beforeEach(function () {
+        app()->bind(GeminiEmbeddingService::class, FakeGeminiEmbeddingService::class);
+    })
     ->in('Feature');
 
 /*

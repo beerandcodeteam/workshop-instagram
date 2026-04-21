@@ -70,8 +70,8 @@ test('video over 100 MB is rejected', function () {
     expect(Post::count())->toBe(0);
 });
 
-test('video over 60 seconds is rejected', function () {
-    ($this->stubDuration)(61.0);
+test('video over 300 seconds is rejected', function () {
+    ($this->stubDuration)(301.0);
 
     $file = UploadedFile::fake()->create('video.mp4', 2 * 1024, 'video/mp4');
 
