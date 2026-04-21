@@ -3,17 +3,25 @@
 namespace App\Observers;
 
 use App\Models\Comment;
+use App\Models\InteractionType;
+use App\Models\PostInteraction;
 
 class CommentObserver
 {
     public function created(Comment $comment): void
     {
-        // No-op no scaffold. Phase 1 grava em post_interactions
-        // (kind=comment, weight=+1.5) em paralelo ao registro do comment.
-    }
+        $type = InteractionType::where('slug', 'comment')->first();
 
-    public function deleted(Comment $comment): void
-    {
-        // No-op no scaffold.
+        if ($type === null) {
+            return;
+        }
+
+        PostInteraction::create([
+            'user_id' => $comment->user_id,
+            'post_id' => $comment->post_id,
+            'interaction_type_id' => $type->id,
+            'weight' => $type->default_weight,
+            'created_at' => now(),
+        ]);
     }
 }

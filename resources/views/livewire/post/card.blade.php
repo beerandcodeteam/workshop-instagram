@@ -193,6 +193,8 @@
             </svg>
             <span>{{ $post->comments_count ?? $post->comments->count() }}</span>
         </button>
+
+        <livewire:post.share-button :post="$post" :key="'post-share-button-'.$post->id" />
     </div>
 
     @if (in_array($slug, ['image', 'video'], true) && filled($post->body))

@@ -3,8 +3,10 @@
 namespace App\Models;
 
 use App\Observers\PostInteractionObserver;
+use Database\Factories\PostInteractionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -12,6 +14,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[ObservedBy(PostInteractionObserver::class)]
 class PostInteraction extends Model
 {
+    /** @use HasFactory<PostInteractionFactory> */
+    use HasFactory;
+
     public $timestamps = false;
 
     protected function casts(): array
@@ -34,8 +39,8 @@ class PostInteraction extends Model
         return $this->belongsTo(Post::class);
     }
 
-    public function interactionType(): BelongsTo
+    public function type(): BelongsTo
     {
-        return $this->belongsTo(InteractionType::class);
+        return $this->belongsTo(InteractionType::class, 'interaction_type_id');
     }
 }
