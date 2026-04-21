@@ -33,7 +33,8 @@ class LikeButton extends Component
         if ($this->isLiked) {
             Like::where('user_id', auth()->id())
                 ->where('post_id', $this->post->id)
-                ->delete();
+                ->first()
+                ?->delete();
 
             $this->isLiked = false;
             $this->likesCount = max(0, $this->likesCount - 1);
