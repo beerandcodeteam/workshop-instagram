@@ -22,4 +22,7 @@ Route::middleware('auth')->group(function () {
 
     Route::post('/api/rec/view-events', [ViewEventsController::class, 'store'])
         ->name('rec.view-events.store');
+
+    Route::livewire('/admin/rec/metrics', 'pages::admin.rec-metrics')
+        ->name('admin.rec.metrics');
 });

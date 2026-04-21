@@ -33,3 +33,8 @@ Schedule::job(new PurgeRecommendationLogsJob)
     ->timezone('America/Sao_Paulo')
     ->name('purge-recommendation-logs')
     ->withoutOverlapping();
+
+Schedule::command('rec:healthcheck')
+    ->everyFiveMinutes()
+    ->name('rec-healthcheck')
+    ->withoutOverlapping();

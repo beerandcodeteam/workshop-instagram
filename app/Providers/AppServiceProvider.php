@@ -6,6 +6,7 @@ use App\Contracts\EmbeddingServiceContract;
 use App\Contracts\RankingTraceLogger;
 use App\Logging\ChannelRankingTraceLogger;
 use App\Services\GeminiEmbeddingService;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 
@@ -31,5 +32,15 @@ class AppServiceProvider extends ServiceProvider
             classNamespace: 'App\\Livewire\\Pages',
             classPath: app_path('Livewire/Pages'),
         );
+
+        Gate::define('admin', function ($user = null): bool {
+            if ($user === null) {
+                return false;
+            }
+
+            $emails = (array) config('recommendation.admin_emails', []);
+
+            return in_array($user->email, $emails, true);
+        });
     }
 }

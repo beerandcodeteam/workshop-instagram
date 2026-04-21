@@ -21,6 +21,7 @@ class RecommendationService
         protected ColdStartFeedBuilder $coldStart,
         protected ExplorationSlot $explorationSlot,
         protected RankingTraceLogger $trace,
+        protected KillSwitchService $killSwitch,
     ) {}
 
     /**
@@ -40,6 +41,10 @@ class RecommendationService
             'page' => $page,
             'page_size' => $pageSize,
         ]);
+
+        if ($this->killSwitch->isDisabled()) {
+            return $this->fallbackChronologicalFeed($user, $limit, $requestId);
+        }
 
         if ($this->coldStart->isColdStart($user)) {
             return $this->coldStartFeed($user, $limit, $requestId);
@@ -108,6 +113,30 @@ class RecommendationService
         }
 
         return $this->hydratePosts($finalIds);
+    }
+
+    /**
+     * Quando o kill-switch está ligado, retornamos posts mais recentes em ordem
+     * cronológica direta — sem ANN, ranking, MMR, quota ou trace pesado.
+     *
+     * @return Collection<int, Post>
+     */
+    private function fallbackChronologicalFeed(User $user, int $limit, string $requestId): Collection
+    {
+        $this->trace->trace('feed.kill_switch', [
+            'request_id' => $requestId,
+            'user_id' => $user->id,
+            'phase' => 'kill_switch',
+            'limit' => $limit,
+        ]);
+
+        return Post::query()
+            ->with(['author', 'type', 'media', 'likes:id,post_id,user_id'])
+            ->withCount(['likes', 'comments'])
+            ->where('user_id', '!=', $user->id)
+            ->latest('posts.created_at')
+            ->limit($limit)
+            ->get();
     }
 
     /**
