@@ -8,7 +8,6 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class DemoUserSeeder extends Seeder
@@ -23,14 +22,16 @@ class DemoUserSeeder extends Seeder
 
     public int $postChunk = 1000;
 
-    public string $manifestPath = 'pixabay-manifest.json';
+    public string $manifestPath = __DIR__.'/data/pixabay-manifest.json';
+
+    public string $textPoolPath = __DIR__.'/data/text_pool.json';
 
     public function run(): void
     {
         $manifest = $this->loadManifest();
 
         if ($manifest === null) {
-            $this->say('error', 'Manifest not found. Run `./vendor/bin/sail artisan app:seed-pixabay-media` first.');
+            $this->say('error', 'Manifest not found at '.$this->manifestPath);
 
             return;
         }
@@ -40,6 +41,14 @@ class DemoUserSeeder extends Seeder
 
         if ($imagesPool === [] || $videosPool === []) {
             $this->say('error', 'Manifest is empty — re-run the download command.');
+
+            return;
+        }
+
+        $textPool = $this->loadTextPool();
+
+        if ($textPool === []) {
+            $this->say('error', 'Text pool not found at '.$this->textPoolPath);
 
             return;
         }
@@ -56,7 +65,21 @@ class DemoUserSeeder extends Seeder
         $typePlan = $this->buildTypePlan($totalPosts);
 
         $userIds = $this->insertUsers($this->userCount);
-        $this->insertPostsAndMedia($userIds, $typePlan, $typeIds, $imagesPool, $videosPool);
+        $this->insertPostsAndMedia($userIds, $typePlan, $typeIds, $imagesPool, $videosPool, $textPool);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function loadTextPool(): array
+    {
+        if (! is_file($this->textPoolPath)) {
+            return [];
+        }
+
+        $decoded = json_decode((string) file_get_contents($this->textPoolPath), true);
+
+        return is_array($decoded) ? array_values(array_filter($decoded, 'is_string')) : [];
     }
 
     private function say(string $level, string $message): void
@@ -67,16 +90,15 @@ class DemoUserSeeder extends Seeder
     }
 
     /**
-     * @return array{images: array<int, array{id: int, path: string, tags: string, user: string}>, videos: array<int, array{id: int, path: string, tags: string, user: string}>}|null
+     * @return array{images: array<int, array{id: int, path: string, tags: string, user: string, caption?: string}>, videos: array<int, array{id: int, path: string, tags: string, user: string, caption?: string}>}|null
      */
     private function loadManifest(): ?array
     {
-        if (! Storage::disk('local')->exists($this->manifestPath)) {
+        if (! is_file($this->manifestPath)) {
             return null;
         }
 
-        $content = Storage::disk('local')->get($this->manifestPath);
-        $decoded = json_decode((string) $content, true);
+        $decoded = json_decode((string) file_get_contents($this->manifestPath), true);
 
         if (! is_array($decoded) || ! isset($decoded['images'], $decoded['videos'])) {
             return null;
@@ -163,8 +185,9 @@ class DemoUserSeeder extends Seeder
      * @param  array<int, int>  $userIds
      * @param  array<int, 'text'|'image'|'video'>  $typePlan
      * @param  array<string, int>  $typeIds
-     * @param  array<int, array{id: int, path: string, tags: string, user: string}>  $imagesPool
-     * @param  array<int, array{id: int, path: string, tags: string, user: string}>  $videosPool
+     * @param  array<int, array{id: int, path: string, tags: string, user: string, caption?: string}>  $imagesPool
+     * @param  array<int, array{id: int, path: string, tags: string, user: string, caption?: string}>  $videosPool
+     * @param  array<int, string>  $textPool
      */
     private function insertPostsAndMedia(
         array $userIds,
@@ -172,6 +195,7 @@ class DemoUserSeeder extends Seeder
         array $typeIds,
         array $imagesPool,
         array $videosPool,
+        array $textPool,
     ): void {
         $totalPosts = count($typePlan);
         $this->say('info', "Creating {$totalPosts} posts and media...");
@@ -188,17 +212,25 @@ class DemoUserSeeder extends Seeder
                 $type = $typePlan[$typeIndex++];
                 $createdAt = $now->copy()->subMinutes(random_int(0, 60 * 24 * 30));
 
+                $body = null;
+
+                if ($type === 'text') {
+                    $body = $textPool[array_rand($textPool)];
+                } else {
+                    $pool = $type === 'image' ? $imagesPool : $videosPool;
+                    $hit = $pool[array_rand($pool)];
+                    $body = isset($hit['caption']) && fake()->boolean(85) ? $hit['caption'] : null;
+                }
+
                 $postRows[] = [
                     'user_id' => $userId,
                     'post_type_id' => $typeIds[$type],
-                    'body' => $this->bodyFor($type),
+                    'body' => $body,
                     'created_at' => $createdAt,
                     'updated_at' => $createdAt,
                 ];
 
                 if ($type === 'image' || $type === 'video') {
-                    $pool = $type === 'image' ? $imagesPool : $videosPool;
-                    $hit = $pool[array_rand($pool)];
                     $mediaPlan[count($postRows) - 1] = [
                         'file_path' => $hit['path'],
                         'created_at' => $createdAt,
@@ -241,13 +273,5 @@ class DemoUserSeeder extends Seeder
         foreach (array_chunk($mediaRows, $this->postChunk) as $chunk) {
             DB::table('post_media')->insert($chunk);
         }
-    }
-
-    private function bodyFor(string $type): ?string
-    {
-        return match ($type) {
-            'text' => fake()->paragraph(),
-            default => fake()->boolean(70) ? fake()->sentence() : null,
-        };
     }
 }

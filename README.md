@@ -1,58 +1,85 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Workshop Instagram
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Projeto base do workshop sobre **sistemas de recomendação com embeddings multimodais** usando o modelo do Google.
 
-## About Laravel
+O clone simplificado do Instagram (Laravel 13 + Livewire 4) é só o cenário — o foco do workshop é construir, em cima desses dados, um sistema que recomenda posts (imagem + texto) a partir de embeddings gerados pelo modelo multimodal do Google.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
-
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
-
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## Setup
 
 ```bash
-composer require laravel/boost --dev
+# 1. Clone
+git clone <repo-url> workshop-instagram
+cd workshop-instagram
 
-php artisan boost:install
+# 2. Instalar dependências do Composer (antes do Sail existir)
+docker run --rm \
+    -u "$(id -u):$(id -g)" \
+    -v "$(pwd):/var/www/html" \
+    -w /var/www/html \
+    laravelsail/php85-composer:latest \
+    composer install --ignore-platform-reqs
+
+# 3. Configurar .env
+cp .env.example .env
+
+# 4. Subir os containers (app + Postgres + MinIO)
+./vendor/bin/sail up -d
+
+# 5. App key + dependências de front-end
+./vendor/bin/sail artisan key:generate
+./vendor/bin/sail npm install
+./vendor/bin/sail npm run build
+
+# 6. Rodar as migrations
+./vendor/bin/sail artisan migrate
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+## Popular com dados de demonstração
 
-## Contributing
+O seed cria 5000 usuários e 10000 posts com mídias reais (imagens e vídeos do Pixabay) e legendas contextualizadas em português.
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+As mídias (7.24GB) não estão no repositório — baixe o `seed-media.zip` do Google Drive do workshop e coloque na **raiz do projeto**.
 
-## Code of Conduct
+```bash
+# 1 Rodar as migrations
+./vendor/bin/sail artisan migrate --seed
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+# 2. Baixar seed-media.zip do Drive e deixar na raiz do projeto seed-media.zip
+https://drive.google.com/file/d/12rrGBwMk97zktH40ouSK7QtCN5ep_hVO/view?usp=sharing
 
-## Security Vulnerabilities
+# 3. Extrair e subir as mídias pro MinIO (demora alguns minutos)
+./vendor/bin/sail artisan app:install-seed-media
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+# 4. Popular o banco
+./vendor/bin/sail artisan db:seed --class=DemoUserSeeder
+```
 
-## License
+O comando `app:install-seed-media` aceita:
+- `--zip=caminho/outro.zip` — usa outro zip
+- `--force` — reescreve objetos que já existem no MinIO
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## Como os dados foram gerados
+
+Arquivos fonte (versionados no repo):
+- **Manifest** (`database/seeders/data/pixabay-manifest.json`): lista das 1000 mídias do Pixabay com tags, query e legenda (`caption`) pré-gerada em PT-BR
+- **Pool de texto** (`database/seeders/data/text_pool.json`): 250 posts de texto puro estilo Instagram
+
+Pipeline usado pra gerar esses arquivos:
+
+```bash
+# 1. Baixar as mídias do Pixabay pro MinIO e gerar o manifest inicial
+#    (precisa PIXABAY_API_KEY no .env)
+./vendor/bin/sail artisan app:seed-pixabay-media
+
+# 2. Gerar captions olhando cada imagem + tags (via Claude Code, ~10 min)
+#    Os vídeos tiveram caption gerada só a partir das tags (sem visualização)
+#    Resultado salvo direto no manifest, em cada entry como "caption"
+
+# 3. Gerar pool de textos (via Claude Code, ~2 min)
+#    Resultado salvo em database/seeders/data/text_pool.json
+
+# 4. Zipar as mídias pra distribuir (pra não versionar 7GB no git)
+cd /caminho/pro/minio/data && zip -r -0 seed-media.zip seed/
+```
+
+Atenção: `app:seed-pixabay-media` **não regera as legendas** — após rodar, as captions no manifest estarão faltando e o pipeline de geração via Claude Code precisa ser rodado de novo.

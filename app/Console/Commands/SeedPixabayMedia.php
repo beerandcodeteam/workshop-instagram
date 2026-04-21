@@ -9,10 +9,12 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
 
-#[Signature('app:seed-pixabay-media {--images=600} {--videos=400} {--manifest=pixabay-manifest.json}')]
+#[Signature('app:seed-pixabay-media {--images=600} {--videos=400}')]
 #[Description('Download a pool of Pixabay images and videos to the default filesystem disk')]
 class SeedPixabayMedia extends Command
 {
+    private const MANIFEST_PATH = __DIR__.'/../../../database/seeders/data/pixabay-manifest.json';
+
     /**
      * @var array<int, string>
      */
@@ -76,15 +78,16 @@ class SeedPixabayMedia extends Command
         $images = $this->fillPool($pixabay, 'images', self::IMAGE_QUERIES, $imagesTarget, $disk);
         $videos = $this->fillPool($pixabay, 'videos', self::VIDEO_QUERIES, $videosTarget, $disk);
 
-        $manifest = $this->option('manifest');
-        Storage::disk('local')->put(
-            $manifest,
-            (string) json_encode(['images' => $images, 'videos' => $videos], JSON_PRETTY_PRINT),
+        $manifestPath = realpath(dirname(self::MANIFEST_PATH)).'/'.basename(self::MANIFEST_PATH);
+        file_put_contents(
+            $manifestPath,
+            (string) json_encode(['images' => $images, 'videos' => $videos], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
         );
 
         $this->newLine();
-        $this->info("Manifest saved to storage/app/private/{$manifest}");
+        $this->info("Manifest saved to {$manifestPath}");
         $this->info('Pool: '.count($images).' images, '.count($videos).' videos.');
+        $this->warn('Captions are NOT regenerated. Run the captioning workflow if you regenerated media.');
 
         return self::SUCCESS;
     }
