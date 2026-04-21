@@ -45,16 +45,16 @@ class Index extends Component
             ->select('posts.*')
             ->with(['author', 'type', 'media', 'likes:id,post_id,user_id'])
             ->withCount(['likes', 'comments'])
-            ->join('post_embeddings', 'post_embeddings.post_id', '=', 'posts.id');
+            ->whereNotNull('posts.embedding');
 
         if ($viewerCentroid) {
             $literal = '['.implode(',', $viewerCentroid).']';
-            $query->orderByRaw('post_embeddings.embedding <=> ?::vector', [$literal]);
+            $query->orderByRaw('posts.embedding <=> ?::vector', [$literal]);
         } else {
             $query->latest('posts.created_at')->latest('posts.id');
         }
 
-        $totalPosts = Post::whereHas('postEmbeddings')->count();
+        $totalPosts = Post::whereNotNull('embedding')->count();
 
         $posts = $query->limit($this->perPage)->get();
 

@@ -1,7 +1,9 @@
 <?php
 
+use App\Services\GeminiCircuitBreaker;
 use App\Services\GeminiEmbeddingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Redis;
 use Tests\Fakes\FakeGeminiEmbeddingService;
 use Tests\TestCase;
 
@@ -20,6 +22,8 @@ pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->beforeEach(function () {
         app()->bind(GeminiEmbeddingService::class, FakeGeminiEmbeddingService::class);
+        Redis::del(GeminiCircuitBreaker::FAILURES_KEY);
+        Redis::del(GeminiCircuitBreaker::CIRCUIT_KEY);
     })
     ->in('Feature');
 

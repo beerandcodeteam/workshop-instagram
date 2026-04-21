@@ -2,43 +2,68 @@
 
 namespace App\Jobs;
 
+use App\Models\EmbeddingModel;
 use App\Models\Post;
+use App\Services\GeminiCircuitBreaker;
 use App\Services\GeminiEmbeddingService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 class GeneratePostEmbeddingJob implements ShouldQueue
 {
     use Queueable;
 
-    private $parts = [];
+    public int $tries = 3;
 
-    /**
-     * Create a new job instance.
-     */
-    public function __construct(private Post $post)
+    public function __construct(private Post $post, private bool $replace = false)
     {
-        //
+        $this->onQueue('embeddings');
     }
 
-    /**
-     * Execute the job.
-     */
-    public function handle(GeminiEmbeddingService $gemini): void
+    public function handle(GeminiEmbeddingService $gemini, GeminiCircuitBreaker $breaker): void
     {
-        if (trim($this->post->body) !== '') {
-            $this->parts[] = ['text' => $this->post->body];
+        if ($breaker->isOpen()) {
+            $this->release(300);
+
+            return;
         }
 
-        $finfo = new \finfo(FILEINFO_MIME_TYPE);
+        $post = $this->post->fresh();
 
-        if ($this->post->whereHas('media')) {
-            $media = $this->post->media;
-            foreach ($media as $mediaItem) {
+        if ($post === null) {
+            return;
+        }
+
+        $hasBody = trim((string) $post->body) !== '';
+        $hasMedia = $post->media()->exists();
+
+        if (! $hasBody && ! $hasMedia) {
+            return;
+        }
+
+        if (! $this->replace && $post->embedding !== null) {
+            return;
+        }
+
+        $parts = [];
+
+        if ($hasBody) {
+            $parts[] = ['text' => $post->body];
+        }
+
+        if ($hasMedia) {
+            $finfo = new \finfo(FILEINFO_MIME_TYPE);
+
+            foreach ($post->media as $mediaItem) {
                 $bytes = Storage::get($mediaItem->file_path);
 
-                $this->parts[] = [
+                if ($bytes === null) {
+                    continue;
+                }
+
+                $parts[] = [
                     'inline_data' => [
                         'mime_type' => $finfo->buffer($bytes),
                         'data' => base64_encode($bytes),
@@ -47,10 +72,31 @@ class GeneratePostEmbeddingJob implements ShouldQueue
             }
         }
 
-        $embedding = $gemini->embed($this->parts);
+        try {
+            $embedding = $gemini->embed($parts);
+        } catch (Throwable $e) {
+            $breaker->recordFailure();
 
-        $this->post->postEmbeddings()->create([
+            throw $e;
+        }
+
+        $breaker->recordSuccess();
+
+        $modelId = EmbeddingModel::where('slug', config('services.gemini.embedding.model'))
+            ->value('id');
+
+        $post->forceFill([
             'embedding' => $embedding,
-        ]);
+            'embedding_updated_at' => now(),
+            'embedding_model_id' => $modelId,
+        ])->save();
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    public function backoff(): array
+    {
+        return [5, 15, 45];
     }
 }

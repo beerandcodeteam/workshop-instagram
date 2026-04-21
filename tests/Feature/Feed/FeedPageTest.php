@@ -4,8 +4,8 @@ use App\Livewire\Pages\Feed\Index;
 use App\Models\Comment;
 use App\Models\Like;
 use App\Models\Post;
-use App\Models\PostEmbedding;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
 test('feed route renders for an authenticated user', function () {
@@ -58,7 +58,7 @@ test('feed excludes posts that do not have an embedding yet', function () {
     $withEmbedding = Post::factory()->text()->create();
     $withoutEmbedding = Post::factory()->text()->create();
 
-    $withoutEmbedding->postEmbeddings()->delete();
+    DB::table('posts')->where('id', $withoutEmbedding->id)->update(['embedding' => null]);
 
     $component = Livewire::test(Index::class);
 
@@ -88,8 +88,8 @@ test('feed ranks posts by cosine similarity to the viewer centroid', function ()
     $nearVector = array_fill(0, $dims, 0.0);
     $nearVector[0] = 1.0;
 
-    PostEmbedding::where('post_id', $farPost->id)->update(['embedding' => '['.implode(',', $farVector).']']);
-    PostEmbedding::where('post_id', $nearPost->id)->update(['embedding' => '['.implode(',', $nearVector).']']);
+    DB::table('posts')->where('id', $farPost->id)->update(['embedding' => '['.implode(',', $farVector).']']);
+    DB::table('posts')->where('id', $nearPost->id)->update(['embedding' => '['.implode(',', $nearVector).']']);
 
     $component = Livewire::test(Index::class);
 
