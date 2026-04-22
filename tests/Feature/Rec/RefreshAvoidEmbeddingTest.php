@@ -88,7 +88,7 @@ test('avoid_is_null_for_users_without_negative_signals', function () {
     expect($user->fresh()->avoid_embedding)->toBeNull();
 });
 
-test('skip_fast_signals_contribute_to_avoid', function () {
+test('skip_fast_signals_do_not_contribute_to_avoid', function () {
     $user = User::factory()->create();
 
     $post = Post::factory()->text()->createQuietly();
@@ -101,12 +101,12 @@ test('skip_fast_signals_contribute_to_avoid', function () {
     // gatilho de atividade
     makeAvoidInteraction($user, $post, 'like', now()->subHours(1));
 
-    // skip_fast: peso -0.3, half-life 6h. Várias amostras recentes para ultrapassar threshold (1.0).
+    // skip_fast sozinho não deve mais alimentar avoid_embedding (converge pro LT/ST).
     foreach (range(1, 5) as $_) {
         makeAvoidInteraction($user, $post, 'skip_fast', now()->subMinutes(30));
     }
 
     (new RefreshLongTermEmbeddingsJob)->handle(app(UserEmbeddingService::class));
 
-    expect($user->fresh()->avoid_embedding)->not->toBeNull();
+    expect($user->fresh()->avoid_embedding)->toBeNull();
 });

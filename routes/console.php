@@ -47,3 +47,11 @@ Schedule::command('rec:healthcheck')
     ->everyFiveMinutes()
     ->name('rec-healthcheck')
     ->withoutOverlapping();
+
+Schedule::command('app:purge-old-events')
+    ->weekly()
+    ->sundays()
+    ->at('05:00')
+    ->timezone('America/Sao_Paulo')
+    ->name('purge-old-events')
+    ->withoutOverlapping();

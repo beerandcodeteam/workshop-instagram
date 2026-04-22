@@ -85,10 +85,15 @@ class UserEmbeddingService
         $windowDays = (int) config('recommendation.avoid.window_days', 90);
         $threshold = (float) config('recommendation.avoid.weight_threshold', 1.0);
 
+        // skip_fast dispara sobre posts servidos pelo próprio ranker (alinhados ao LT/ST),
+        // então alimentá-lo no avoid_embedding faz o vetor colapsar na direção dos interesses
+        // positivos — anulando o benefício da penalidade. Só sinais negativos "fortes"
+        // (hide, report, unlike, author_block) alimentam o avoid.
         $rows = $this->loadInteractionRows(
             userId: $user->id,
             since: now()->subDays($windowDays),
             isPositive: false,
+            excludeSlugs: ['skip_fast'],
         );
 
         [$vector, $totalWeight] = $this->aggregatePerTypeHalfLife($rows);
@@ -136,17 +141,24 @@ class UserEmbeddingService
     }
 
     /**
+     * @param  list<string>  $excludeSlugs
      * @return Collection<int, object>
      */
-    private function loadInteractionRows(int $userId, Carbon $since, bool $isPositive): Collection
+    private function loadInteractionRows(int $userId, Carbon $since, bool $isPositive, array $excludeSlugs = []): Collection
     {
-        return DB::table('post_interactions as pi')
+        $query = DB::table('post_interactions as pi')
             ->join('interaction_types as it', 'it.id', '=', 'pi.interaction_type_id')
             ->join('posts as p', 'p.id', '=', 'pi.post_id')
             ->where('pi.user_id', $userId)
             ->where('pi.created_at', '>=', $since)
             ->where('it.is_positive', $isPositive)
-            ->whereNotNull('p.embedding')
+            ->whereNotNull('p.embedding');
+
+        if ($excludeSlugs !== []) {
+            $query->whereNotIn('it.slug', $excludeSlugs);
+        }
+
+        return $query
             ->select(
                 'pi.weight as weight',
                 'pi.created_at as created_at',
