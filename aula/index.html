@@ -1,0 +1,2649 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Embeddings não são só para RAG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Grand+Hotel&family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ig-purple: #833AB4;
+  --ig-magenta: #C13584;
+  --ig-pink: #E1306C;
+  --ig-red: #FD1D1D;
+  --ig-orange: #F77737;
+  --ig-yellow: #FDCB5C;
+  --ig-dark: #262626;
+  --ig-gray: #8E8E8E;
+  --ig-border: #DBDBDB;
+  --ig-light: #FAFAFA;
+  --ig-white: #FFFFFF;
+  --gradient-ig: linear-gradient(135deg, #833AB4 0%, #C13584 25%, #E1306C 50%, #F77737 80%, #FDCB5C 100%);
+  --gradient-ig-soft: linear-gradient(135deg, rgba(131,58,180,0.08) 0%, rgba(225,48,108,0.08) 50%, rgba(253,203,92,0.08) 100%);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: var(--ig-dark);
+  background: var(--ig-dark);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.deck { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+.slide {
+  position: absolute; inset: 0;
+  opacity: 0; pointer-events: none;
+  transform: translateY(14px);
+  transition: opacity 0.45s ease, transform 0.45s ease;
+  display: flex; align-items: center; justify-content: center;
+  padding: 72px 88px;
+  overflow: auto;
+  background: var(--ig-white);
+}
+.slide.active { opacity: 1; pointer-events: auto; transform: translateY(0); }
+.slide-content { width: 100%; max-width: 1200px; }
+
+/* ====== Theme: gradient (title / highlight) ====== */
+.slide-gradient {
+  background: var(--gradient-ig);
+  color: var(--ig-white);
+  position: relative;
+  overflow: hidden;
+}
+.slide-gradient::before {
+  content: "";
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(circle at 15% 85%, rgba(255,255,255,0.22) 0%, transparent 42%),
+    radial-gradient(circle at 85% 15%, rgba(255,255,255,0.16) 0%, transparent 50%);
+  pointer-events: none;
+}
+.slide-gradient .slide-content { position: relative; z-index: 1; }
+
+/* ====== Brand lockup (top-left) ====== */
+.brand {
+  position: fixed; top: 26px; left: 28px; z-index: 100;
+  font-family: 'Grand Hotel', cursive;
+  font-size: 28px; line-height: 1;
+  background: var(--gradient-ig);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent;
+  pointer-events: none;
+}
+body[data-theme="dark"] .brand {
+  background: none; color: var(--ig-white);
+  -webkit-text-fill-color: var(--ig-white);
+}
+
+/* ====== Title slide (hero full-screen) ====== */
+.slide.slide-title {
+  padding: 48px;
+  width: 100vw;
+  height: 100vh;
+  align-items: center;
+  justify-content: center;
+}
+.slide.slide-title .slide-content {
+  width: 100%;
+  max-width: 1100px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.slide-title h1 {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 800;
+  font-size: clamp(56px, 9vw, 128px);
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  margin-bottom: 8px;
+}
+.slide-title .title-script {
+  display: block;
+  font-family: 'Grand Hotel', cursive;
+  font-weight: 400;
+  font-size: clamp(42px, 7vw, 96px);
+  letter-spacing: 0;
+  margin-top: 4px;
+}
+.slide-title .subtitle {
+  margin: 40px auto 0;
+  font-size: clamp(18px, 2vw, 26px);
+  font-weight: 300;
+  opacity: 0.95;
+  max-width: 820px;
+  line-height: 1.55;
+}
+.slide-title .author {
+  margin-top: 64px;
+  display: inline-flex; align-items: center; gap: 14px;
+  padding: 8px 22px 8px 8px;
+  background: rgba(255,255,255,0.16);
+  backdrop-filter: blur(12px);
+  border-radius: 999px;
+  font-size: 15px; font-weight: 500;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+.slide-title .author-avatar {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--ig-white);
+  display: grid; place-items: center;
+  font-weight: 700; color: var(--ig-pink);
+  font-size: 16px;
+}
+
+/* ====== Content slides ====== */
+.eyebrow {
+  display: inline-block;
+  font-size: 12px; font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  background: var(--gradient-ig);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent;
+  margin-bottom: 22px;
+}
+.slide-heading {
+  font-size: clamp(36px, 4.4vw, 64px);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin-bottom: 24px;
+}
+.slide-heading .accent {
+  background: var(--gradient-ig);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent;
+}
+.slide-sub {
+  font-size: clamp(18px, 1.6vw, 22px);
+  font-weight: 300;
+  color: var(--ig-gray);
+  max-width: 920px; line-height: 1.55;
+  margin-bottom: 36px;
+}
+
+/* ====== Pílula (callout curto de profissão) ====== */
+.pill {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 11px 20px;
+  border-radius: 999px;
+  font-size: 14px; font-weight: 500;
+  border: 2px solid transparent;
+  background: linear-gradient(white, white) padding-box,
+              var(--gradient-ig) border-box;
+  color: var(--ig-dark);
+  line-height: 1.4;
+}
+.pill::before { content: "💡"; font-size: 16px; }
+.pill.pill-inverse {
+  background: rgba(255,255,255,0.15);
+  backdrop-filter: blur(10px);
+  color: var(--ig-white);
+  border: 1px solid rgba(255,255,255,0.35);
+}
+.pill.pill-inverse::before { content: "💡"; }
+
+/* ====== Hook texto grande ====== */
+.hook {
+  font-size: clamp(36px, 4.6vw, 66px);
+  font-weight: 700;
+  line-height: 1.18;
+  letter-spacing: -0.02em;
+  max-width: 1050px;
+}
+.hook em {
+  font-style: normal;
+  background: var(--gradient-ig);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent;
+}
+
+/* ====== Comparador de palavras (semelhante / diferente) ====== */
+.wordpair {
+  display: flex; align-items: center; gap: 20px;
+  padding: 20px 28px;
+  background: var(--ig-light);
+  border-radius: 20px;
+  border: 1px solid var(--ig-border);
+  margin-bottom: 16px;
+  font-size: 22px;
+}
+.wordpair .word {
+  font-weight: 600;
+  padding: 6px 18px;
+  background: var(--ig-white);
+  border-radius: 999px;
+  border: 1px solid var(--ig-border);
+}
+.wordpair .rel {
+  font-weight: 700; font-size: 28px;
+  padding: 4px 14px; border-radius: 12px;
+}
+.wordpair.near .rel { background: rgba(72, 187, 120, 0.12); color: #2f855a; }
+.wordpair.far .rel  { background: rgba(225, 48, 108, 0.12); color: var(--ig-pink); }
+.wordpair .note { margin-left: auto; color: var(--ig-gray); font-size: 15px; }
+
+/* ====== One-hot visual ====== */
+.onehot-demo { display: grid; gap: 12px; margin: 28px 0; }
+.onehot-row {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  align-items: center; gap: 24px;
+}
+.onehot-word { font-weight: 600; font-size: 19px; }
+.onehot-vec {
+  display: flex; gap: 6px;
+  font-family: 'SF Mono', ui-monospace, Consolas, monospace;
+  font-size: 14px;
+}
+.onehot-vec .cell {
+  width: 36px; height: 36px;
+  display: grid; place-items: center;
+  border: 1px solid var(--ig-border);
+  border-radius: 7px;
+  background: var(--ig-white);
+  color: var(--ig-gray);
+}
+.onehot-vec .cell.on {
+  background: var(--gradient-ig);
+  color: var(--ig-white);
+  border-color: transparent;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(225,48,108,0.35);
+}
+.problem-note {
+  margin-top: 24px;
+  padding: 18px 24px;
+  border-left: 4px solid var(--ig-pink);
+  background: rgba(225,48,108,0.05);
+  font-size: 17px; line-height: 1.55;
+  color: var(--ig-dark);
+  border-radius: 10px;
+  max-width: 900px;
+}
+
+/* ====== Quote ====== */
+.quote-block {
+  position: relative;
+  padding: 0 0 0 40px;
+  max-width: 950px;
+  margin-bottom: 28px;
+}
+.quote-block::before {
+  content: "“";
+  position: absolute; left: -18px; top: -46px;
+  font-family: Georgia, serif;
+  font-size: 160px; line-height: 1;
+  color: var(--ig-pink);
+  opacity: 0.35;
+}
+.quote-text {
+  font-size: clamp(28px, 3vw, 44px);
+  font-weight: 300; font-style: italic;
+  line-height: 1.25; letter-spacing: -0.01em;
+}
+.quote-author {
+  margin-top: 18px;
+  font-size: 15px; color: var(--ig-gray); font-weight: 500;
+}
+.quote-translation {
+  margin-top: 28px;
+  padding: 18px 24px;
+  background: var(--gradient-ig-soft);
+  border-radius: 14px;
+  font-size: 19px;
+  max-width: 900px; line-height: 1.55;
+}
+.quote-translation strong { font-weight: 700; }
+
+.example {
+  margin-top: 28px;
+  font-size: 20px; line-height: 1.6;
+  max-width: 900px;
+}
+.example .blank {
+  display: inline-block;
+  min-width: 110px;
+  border-bottom: 3px solid var(--ig-pink);
+  margin: 0 4px;
+}
+.example .words {
+  margin-top: 14px; color: var(--ig-gray);
+  font-size: 17px;
+}
+.example .words span {
+  display: inline-block;
+  padding: 3px 12px; margin: 4px 6px 0 0;
+  border-radius: 999px;
+  border: 1px solid var(--ig-border);
+  background: var(--ig-light);
+  color: var(--ig-dark);
+  font-size: 15px;
+}
+
+/* ====== Mapa semântico 2D ====== */
+.sem-map {
+  position: relative;
+  width: 100%;
+  max-width: 1000px;
+  aspect-ratio: 16 / 9;
+  background: var(--ig-light);
+  border: 1px solid var(--ig-border);
+  border-radius: 24px;
+  overflow: hidden;
+  margin: 18px 0 0;
+}
+.sem-map::before {
+  content: "";
+  position: absolute; inset: 0;
+  background-image: radial-gradient(circle, rgba(0,0,0,0.08) 1px, transparent 1px);
+  background-size: 28px 28px;
+  opacity: 0.6;
+}
+.sem-map::after {
+  content: "";
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(to right, transparent calc(50% - 1px), rgba(0,0,0,0.07) 50%, transparent calc(50% + 1px)),
+    linear-gradient(to bottom, transparent calc(50% - 1px), rgba(0,0,0,0.07) 50%, transparent calc(50% + 1px));
+  pointer-events: none;
+}
+.sem-chip {
+  position: absolute;
+  padding: 7px 15px;
+  border-radius: 999px;
+  font-weight: 600; font-size: 14px;
+  background: var(--ig-white);
+  border: 2px solid var(--ig-border);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+}
+.sem-chip.c-pets    { border-color: var(--ig-purple); color: var(--ig-purple); }
+.sem-chip.c-music   { border-color: var(--ig-pink);   color: var(--ig-pink); }
+.sem-chip.c-food    { border-color: var(--ig-orange); color: #c0580b; }
+.sem-chip.c-tech    { border-color: #2f855a;          color: #2f855a; }
+
+.sem-label {
+  position: absolute;
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--ig-gray);
+  background: var(--ig-light);
+  padding: 3px 10px;
+  border-radius: 999px;
+  z-index: 3;
+}
+
+/* ====== Word2vec equação ====== */
+.w2v-eq {
+  display: flex; align-items: center; justify-content: center;
+  gap: 14px;
+  margin: 32px 0 12px;
+  flex-wrap: wrap;
+}
+.w2v-term {
+  padding: 18px 26px;
+  background: var(--ig-white);
+  border-radius: 18px;
+  border: 2px solid var(--ig-border);
+  min-width: 150px;
+  text-align: center;
+  transition: transform 0.25s;
+}
+.w2v-term .term-label {
+  font-size: 24px; font-weight: 700; color: var(--ig-dark);
+}
+.w2v-term .term-sub {
+  font-size: 11px; color: var(--ig-gray);
+  font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.12em; margin-top: 6px;
+}
+.w2v-term.target {
+  background: var(--gradient-ig);
+  border-color: transparent;
+  box-shadow: 0 14px 36px rgba(225,48,108,0.3);
+  transform: scale(1.08);
+}
+.w2v-term.target .term-label { color: var(--ig-white); }
+.w2v-term.target .term-sub { color: rgba(255,255,255,0.9); }
+.w2v-op {
+  font-size: 36px; font-weight: 700;
+  color: var(--ig-gray);
+  line-height: 1;
+}
+
+/* ====== Comparação contextual (transformers) ====== */
+.ctx-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin: 28px 0 24px;
+}
+.ctx-card {
+  padding: 24px 26px;
+  background: var(--ig-white);
+  border: 1px solid var(--ig-border);
+  border-radius: 18px;
+}
+.ctx-sentence {
+  font-size: 18px; line-height: 1.55;
+  margin-bottom: 20px;
+}
+.ctx-sentence mark {
+  background: linear-gradient(120deg, rgba(225,48,108,0.18) 0%, rgba(247,119,55,0.18) 100%);
+  color: var(--ig-dark);
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 5px;
+}
+.ctx-vec-bars {
+  display: flex; gap: 4px; align-items: end;
+  height: 54px;
+  padding: 10px 0 0;
+}
+.ctx-vec-bars .bar {
+  width: 10px;
+  background: var(--gradient-ig);
+  border-radius: 3px 3px 0 0;
+  opacity: 0.85;
+}
+.ctx-vec-label {
+  font-family: 'SF Mono', ui-monospace, monospace;
+  font-size: 12px; color: var(--ig-gray);
+  margin-top: 8px;
+}
+
+/* ====== Multimodal diagram ====== */
+.modal-diagram {
+  display: grid;
+  grid-template-columns: 1fr auto 1.2fr;
+  gap: 40px;
+  align-items: center;
+  margin: 32px 0 20px;
+}
+.modal-sources { display: grid; gap: 12px; }
+.modal-source {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 18px;
+  background: var(--ig-white);
+  border: 1px solid var(--ig-border);
+  border-radius: 14px;
+  font-weight: 500; font-size: 16px;
+}
+.modal-source .icon {
+  font-size: 22px;
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  background: var(--gradient-ig-soft);
+  border-radius: 10px;
+}
+.modal-arrow {
+  font-size: 38px; color: var(--ig-gray);
+  text-align: center;
+}
+.modal-space {
+  padding: 28px 32px;
+  background: var(--gradient-ig);
+  color: var(--ig-white);
+  border-radius: 20px;
+  text-align: center;
+  box-shadow: 0 18px 46px rgba(225,48,108,0.28);
+}
+.modal-space .label {
+  font-size: 11px; letter-spacing: 0.18em;
+  text-transform: uppercase; opacity: 0.9;
+  margin-bottom: 10px; font-weight: 700;
+}
+.modal-space .dim {
+  font-size: clamp(44px, 5vw, 64px);
+  font-weight: 800; line-height: 1;
+  font-family: 'Poppins', sans-serif;
+}
+.modal-space .dim sup { font-size: 0.55em; font-weight: 600; opacity: 0.92; margin-left: 4px; }
+
+/* ====== Formalização ====== */
+.formula-block { display: grid; gap: 14px; margin: 22px 0 24px; }
+.formula-line {
+  padding: 20px 28px;
+  background: var(--ig-light);
+  border: 1px solid var(--ig-border);
+  border-radius: 14px;
+  font-family: 'SF Mono', ui-monospace, Consolas, monospace;
+  font-size: 19px;
+  line-height: 1.6;
+}
+.formula-line .f-label {
+  display: block;
+  font-size: 11px; color: var(--ig-gray);
+  letter-spacing: 0.15em; text-transform: uppercase;
+  font-weight: 700; margin-bottom: 8px;
+  font-family: 'Poppins', sans-serif;
+}
+.formula-line .op { color: var(--ig-pink); font-weight: 700; }
+.formula-line .num { color: var(--ig-purple); font-weight: 700; }
+
+/* ====== Agenda grid (8 aplicações) ====== */
+.app-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-top: 24px;
+}
+.app-card {
+  position: relative;
+  padding: 22px 20px;
+  background: var(--ig-white);
+  border: 1px solid var(--ig-border);
+  border-radius: 18px;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.app-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 40px rgba(0,0,0,0.08);
+}
+.app-card.highlight {
+  background: var(--gradient-ig);
+  color: var(--ig-white);
+  border-color: transparent;
+  box-shadow: 0 14px 40px rgba(225,48,108,0.28);
+}
+.app-card .num {
+  display: block;
+  font-size: 11px; font-weight: 700;
+  color: var(--ig-gray);
+  letter-spacing: 0.18em;
+  margin-bottom: 10px;
+  font-family: 'SF Mono', ui-monospace, Consolas, monospace;
+}
+.app-card.highlight .num { color: rgba(255,255,255,0.85); }
+.app-card .app-icon {
+  font-size: 30px; display: block; margin-bottom: 6px; line-height: 1.1;
+}
+.app-card .app-title {
+  font-size: 17px; font-weight: 700; margin-bottom: 6px; letter-spacing: -0.01em;
+}
+.app-card .app-desc {
+  font-size: 13px; font-weight: 400;
+  color: var(--ig-gray);
+  line-height: 1.5;
+}
+.app-card.highlight .app-desc { color: rgba(255,255,255,0.92); }
+@media (max-width: 1100px) {
+  .app-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ====== Busca semântica ====== */
+.sem-search { display: grid; gap: 18px; margin: 26px 0; max-width: 1040px; }
+.sem-query {
+  display: flex; align-items: center; gap: 14px;
+  padding: 18px 24px;
+  background: var(--ig-dark);
+  color: var(--ig-white);
+  border-radius: 16px;
+  font-size: 17px;
+}
+.sem-query .q-label {
+  font-size: 11px; color: rgba(255,255,255,0.55);
+  font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+}
+.sem-query .q-text { flex: 1; font-weight: 500; }
+.sem-results {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+}
+.sem-result {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 18px;
+  background: var(--ig-light);
+  border: 1px solid var(--ig-border);
+  border-radius: 14px;
+}
+.sem-result .r-text { flex: 1; font-size: 15px; line-height: 1.45; }
+.sem-result .r-score {
+  font-family: 'SF Mono', ui-monospace, Consolas, monospace;
+  font-size: 13px; font-weight: 700;
+  padding: 4px 12px; border-radius: 999px;
+  background: var(--gradient-ig);
+  color: var(--ig-white);
+}
+.sem-callout {
+  padding: 16px 22px;
+  background: var(--gradient-ig-soft);
+  border-left: 4px solid var(--ig-pink);
+  border-radius: 10px;
+  font-size: 16px; line-height: 1.55;
+}
+
+/* ====== Recomendação flow ====== */
+.reco-flow {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  gap: 14px;
+  align-items: center;
+  margin: 26px 0 20px;
+}
+.reco-stage {
+  padding: 22px 18px;
+  background: var(--ig-white);
+  border: 1px solid var(--ig-border);
+  border-radius: 18px;
+  text-align: center;
+}
+.reco-stage .stage-icon { font-size: 34px; display: block; margin-bottom: 6px; line-height: 1; }
+.reco-stage .stage-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.reco-stage .stage-sub { font-size: 12px; color: var(--ig-gray); font-weight: 500; }
+.reco-stage.active {
+  background: var(--gradient-ig);
+  color: var(--ig-white);
+  border-color: transparent;
+  box-shadow: 0 12px 34px rgba(225,48,108,0.28);
+}
+.reco-stage.active .stage-sub { color: rgba(255,255,255,0.9); }
+.reco-arrow { font-size: 28px; color: var(--ig-gray); text-align: center; }
+
+.build-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 18px;
+  background: var(--ig-dark);
+  color: var(--ig-white);
+  border-radius: 999px;
+  font-size: 13px; font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.build-badge::before { content: "⚡"; font-size: 14px; }
+
+/* ====== Roadmap de código (passos da implementação) ====== */
+.code-roadmap {
+  display: grid;
+  gap: 12px;
+  margin: 22px 0 24px;
+  max-width: 1080px;
+}
+.code-step {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  align-items: center;
+  gap: 22px;
+  padding: 18px 24px;
+  background: var(--ig-white);
+  border: 1px solid var(--ig-border);
+  border-radius: 18px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.code-step:hover {
+  transform: translateX(4px);
+  box-shadow: 0 10px 28px rgba(0,0,0,0.08);
+  border-color: transparent;
+}
+.code-step .step-num {
+  width: 48px; height: 48px;
+  display: grid; place-items: center;
+  background: var(--gradient-ig);
+  color: var(--ig-white);
+  border-radius: 14px;
+  font-family: 'SF Mono', ui-monospace, Consolas, monospace;
+  font-weight: 700; font-size: 18px;
+  letter-spacing: 0.02em;
+  box-shadow: 0 6px 18px rgba(225,48,108,0.25);
+}
+.code-step .step-body {
+  display: flex; flex-direction: column; gap: 4px;
+  min-width: 0;
+}
+.code-step .step-title {
+  font-size: 18px; font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.code-step .step-sub {
+  font-size: 13px; color: var(--ig-gray);
+  font-weight: 400; line-height: 1.45;
+}
+.code-step .step-tag {
+  font-family: 'SF Mono', ui-monospace, Consolas, monospace;
+  font-size: 12px; font-weight: 500;
+  padding: 7px 14px;
+  background: var(--ig-light);
+  border-radius: 999px;
+  color: var(--ig-dark);
+  white-space: nowrap;
+  border: 1px solid var(--ig-border);
+}
+
+/* ====== Cards de operador / índice (3 colunas) ====== */
+.ops-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin: 22px 0 20px;
+}
+.op-card {
+  padding: 22px;
+  background: var(--ig-white);
+  border: 1px solid var(--ig-border);
+  border-radius: 18px;
+  font-size: 13px; line-height: 1.5;
+  display: flex; flex-direction: column;
+}
+.op-card.featured {
+  background: var(--gradient-ig);
+  color: var(--ig-white);
+  border-color: transparent;
+  box-shadow: 0 14px 40px rgba(225,48,108,0.28);
+}
+.op-card .op-symbol {
+  font-family: 'SF Mono', ui-monospace, Consolas, monospace;
+  font-size: 22px; font-weight: 700;
+  padding: 8px 14px;
+  background: var(--ig-dark);
+  color: var(--ig-white);
+  border-radius: 10px;
+  display: inline-block;
+  margin-bottom: 12px;
+  align-self: flex-start;
+}
+.op-card.featured .op-symbol { background: rgba(255,255,255,0.22); }
+.op-card h3 {
+  font-size: 17px; font-weight: 700;
+  margin-bottom: 10px; letter-spacing: -0.01em;
+}
+.op-card .op-formula {
+  font-family: 'SF Mono', ui-monospace, Consolas, monospace;
+  font-size: 13px;
+  padding: 10px 14px;
+  background: var(--ig-light);
+  border-radius: 8px;
+  margin-bottom: 12px;
+  color: var(--ig-dark);
+}
+.op-card.featured .op-formula {
+  background: rgba(255,255,255,0.18);
+  color: var(--ig-white);
+}
+.op-card .op-rows { display: grid; gap: 5px; margin-bottom: 12px; }
+.op-card .op-row {
+  display: grid;
+  grid-template-columns: 74px 1fr;
+  gap: 10px;
+}
+.op-card .op-row .k {
+  color: var(--ig-gray);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 10px;
+  padding-top: 2px;
+}
+.op-card.featured .op-row .k { color: rgba(255,255,255,0.78); }
+.op-card .op-row .v { font-weight: 500; font-size: 13px; }
+.op-card .op-when {
+  margin-top: auto;
+  padding: 10px 14px;
+  background: var(--gradient-ig-soft);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ig-dark);
+}
+.op-card.featured .op-when {
+  background: rgba(0,0,0,0.18);
+  color: var(--ig-white);
+}
+.op-card .op-star {
+  position: absolute;
+  top: 16px; right: 18px;
+  font-size: 18px;
+}
+.op-card .op-question {
+  font-size: 14px; font-weight: 600;
+  font-style: italic;
+  padding: 12px 14px;
+  background: var(--ig-light);
+  border-radius: 8px;
+  margin-bottom: 12px;
+  color: var(--ig-dark);
+  line-height: 1.4;
+}
+.op-card.featured .op-question {
+  background: rgba(255,255,255,0.2);
+  color: var(--ig-white);
+}
+
+.insight-note {
+  margin-top: 12px;
+  padding: 18px 24px;
+  border-left: 4px solid var(--ig-purple);
+  background: rgba(131,58,180,0.06);
+  font-size: 15px;
+  line-height: 1.6;
+  border-radius: 10px;
+  max-width: 1080px;
+}
+.insight-note strong { font-weight: 700; color: var(--ig-purple); }
+.insight-note .insight-label {
+  display: block;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ig-purple);
+  margin-bottom: 8px;
+}
+
+/* ====== Pillars (manifesto) ====== */
+.pillar-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin: 22px 0 16px;
+}
+.pillar {
+  padding: 24px;
+  background: var(--ig-white);
+  border: 1px solid var(--ig-border);
+  border-radius: 18px;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.pillar:hover { transform: translateY(-3px); box-shadow: 0 14px 40px rgba(0,0,0,0.08); }
+.pillar .pillar-icon {
+  display: block;
+  font-size: 34px;
+  margin-bottom: 12px;
+  line-height: 1;
+}
+.pillar .pillar-title {
+  font-size: 17px; font-weight: 700;
+  margin-bottom: 8px; letter-spacing: -0.01em;
+}
+.pillar .pillar-body {
+  font-size: 14px; color: var(--ig-gray);
+  line-height: 1.55;
+}
+
+/* ====== Long-term / Short-term cards ====== */
+.ltst-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 20px 0 14px;
+}
+.ltst-card {
+  padding: 26px;
+  border-radius: 22px;
+  color: var(--ig-white);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.14);
+}
+.ltst-card.lt { background: linear-gradient(135deg, #833AB4 0%, #E1306C 100%); }
+.ltst-card.st { background: linear-gradient(135deg, #F77737 0%, #FDCB5C 100%); color: #3a2400; }
+.ltst-card .ltst-badge {
+  display: inline-block;
+  font-size: 10px; font-weight: 800;
+  letter-spacing: 0.2em; text-transform: uppercase;
+  padding: 5px 12px;
+  background: rgba(255,255,255,0.24);
+  border-radius: 999px;
+  margin-bottom: 14px;
+}
+.ltst-card.st .ltst-badge { background: rgba(0,0,0,0.15); }
+.ltst-card .ltst-title {
+  font-size: 24px; font-weight: 800;
+  margin-bottom: 6px; letter-spacing: -0.02em;
+}
+.ltst-card .ltst-tag {
+  font-size: 14px; font-style: italic;
+  opacity: 0.92; margin-bottom: 18px;
+  line-height: 1.4;
+}
+.ltst-card .ltst-params {
+  display: grid; gap: 8px;
+  padding: 14px 16px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 12px;
+  font-size: 13px;
+}
+.ltst-card.st .ltst-params { background: rgba(0,0,0,0.12); }
+.ltst-card .ltst-param {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 10px;
+}
+.ltst-card .ltst-param .k {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 10px;
+  opacity: 0.82;
+  padding-top: 3px;
+}
+.ltst-card .ltst-param .v { font-weight: 500; }
+.ltst-card .ltst-signature {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,0.28);
+  font-size: 13px; opacity: 0.95;
+  line-height: 1.55;
+}
+.ltst-card.st .ltst-signature { border-top-color: rgba(0,0,0,0.18); }
+
+.score-formula {
+  padding: 20px 26px;
+  background: var(--ig-dark);
+  color: var(--ig-white);
+  border-radius: 16px;
+  font-family: 'SF Mono', ui-monospace, Consolas, monospace;
+  font-size: 16px;
+  line-height: 1.6;
+  margin: 8px 0 14px;
+}
+.score-formula .score-label {
+  display: block;
+  font-family: 'Poppins', sans-serif;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: rgba(255,255,255,0.6);
+  margin-bottom: 10px;
+}
+.score-formula .score-eq { font-size: 17px; font-weight: 600; }
+.score-formula .score-hint {
+  display: block;
+  font-family: 'Poppins', sans-serif;
+  font-size: 13px; font-weight: 400;
+  opacity: 0.78;
+  margin-top: 10px;
+  letter-spacing: 0.02em;
+  line-height: 1.5;
+}
+.score-formula .alpha-hi { color: var(--ig-yellow); font-weight: 700; }
+.score-formula .alpha-lo { color: var(--ig-orange); font-weight: 700; }
+
+/* ====== Arquitetura · pipeline completo ====== */
+.pipeline { display: grid; gap: 0; max-width: 1100px; margin: 8px auto; }
+.pipeline-step {
+  display: grid;
+  grid-template-columns: 46px 1fr;
+  gap: 18px;
+  align-items: center;
+  padding: 13px 18px;
+  background: var(--ig-white);
+  border: 1px solid var(--ig-border);
+  border-radius: 14px;
+}
+.pipeline-step.phase-input {
+  background: var(--gradient-ig);
+  color: var(--ig-white);
+  border-color: transparent;
+}
+.pipeline-step.phase-output {
+  background: var(--ig-dark);
+  color: var(--ig-white);
+  border-color: transparent;
+}
+.pipeline-num {
+  width: 38px; height: 38px;
+  display: grid; place-items: center;
+  border-radius: 11px;
+  background: var(--ig-light);
+  color: var(--ig-dark);
+  font-weight: 800; font-size: 13px;
+  font-family: 'SF Mono', ui-monospace, Consolas, monospace;
+}
+.pipeline-step.phase-input .pipeline-num,
+.pipeline-step.phase-output .pipeline-num {
+  background: rgba(255,255,255,0.22);
+  color: var(--ig-white);
+}
+.pipeline-body { min-width: 0; }
+.pipeline-title {
+  font-size: 14px; font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-bottom: 5px;
+}
+.pipeline-chips {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.pipeline-chip {
+  font-size: 11px; font-weight: 500;
+  padding: 3px 10px;
+  background: var(--ig-light);
+  border: 1px solid var(--ig-border);
+  border-radius: 999px;
+  white-space: nowrap;
+  color: var(--ig-dark);
+}
+.pipeline-step.phase-input .pipeline-chip,
+.pipeline-step.phase-output .pipeline-chip {
+  background: rgba(255,255,255,0.18);
+  border-color: rgba(255,255,255,0.3);
+  color: var(--ig-white);
+}
+.pipeline-chip strong {
+  font-family: 'SF Mono', monospace;
+  color: var(--ig-pink);
+  font-weight: 700;
+}
+.pipeline-step.phase-input .pipeline-chip strong,
+.pipeline-step.phase-output .pipeline-chip strong {
+  color: var(--ig-yellow);
+}
+.pipeline-formula {
+  font-family: 'SF Mono', ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  padding: 8px 12px;
+  background: var(--ig-light);
+  border-radius: 8px;
+  margin-top: 2px;
+  color: var(--ig-dark);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.pipeline-connector {
+  position: relative;
+  margin-left: 23px;
+  padding: 3px 0;
+  height: 18px;
+  border-left: 2px dashed rgba(225,48,108,0.35);
+}
+.pipeline-connector::after {
+  content: attr(data-note);
+  position: absolute;
+  left: 18px; top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  color: var(--ig-gray);
+  font-family: 'SF Mono', ui-monospace, Consolas, monospace;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.bypass-row {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  margin-top: 14px;
+  padding: 10px 14px;
+  background: var(--gradient-ig-soft);
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--ig-dark);
+  align-items: center;
+}
+.bypass-row .bypass-label {
+  font-size: 10px; font-weight: 800;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ig-purple);
+  padding-right: 10px;
+  border-right: 1px solid rgba(131,58,180,0.25);
+  margin-right: 6px;
+}
+.bypass-row .bypass-item { font-weight: 500; }
+.bypass-row .bypass-item code {
+  font-family: 'SF Mono', ui-monospace, Consolas, monospace;
+  font-size: 11px;
+  padding: 1px 6px;
+  background: rgba(131,58,180,0.12);
+  border-radius: 4px;
+  color: var(--ig-purple);
+}
+
+/* ====== VS split (na mão vs vibe coding) ====== */
+.vs-split {
+  display: grid;
+  grid-template-columns: 1fr 48px 1fr;
+  gap: 12px;
+  align-items: stretch;
+  margin: 18px 0 20px;
+}
+.vs-card {
+  padding: 22px 24px;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.vs-card.before {
+  background: var(--ig-light);
+  border: 1px solid var(--ig-border);
+  color: var(--ig-dark);
+}
+.vs-card.after {
+  background: var(--gradient-ig);
+  color: var(--ig-white);
+  border: none;
+  box-shadow: 0 14px 40px rgba(225,48,108,0.28);
+}
+.vs-label {
+  font-size: 11px; font-weight: 800;
+  letter-spacing: 0.2em; text-transform: uppercase;
+  opacity: 0.65;
+}
+.vs-card.after .vs-label { opacity: 0.88; }
+.vs-title {
+  font-size: 22px; font-weight: 800;
+  letter-spacing: -0.02em; line-height: 1.1;
+}
+.vs-list { list-style: none; padding: 0; display: grid; gap: 8px; }
+.vs-list li {
+  display: flex; gap: 12px; align-items: center;
+  font-size: 14px; line-height: 1.4;
+}
+.vs-list li .ico {
+  width: 26px; height: 26px;
+  display: grid; place-items: center;
+  font-size: 16px; flex-shrink: 0;
+}
+.vs-arrow {
+  display: grid; place-items: center;
+  font-size: 28px; font-weight: 300;
+  color: var(--ig-gray);
+}
+
+/* ====== Workflow (especificar → ralph → revisar) ====== */
+.workflow {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  gap: 10px; align-items: stretch;
+  margin: 4px 0 18px;
+  padding: 22px;
+  background: var(--ig-dark);
+  color: var(--ig-white);
+  border-radius: 18px;
+}
+.workflow-step { text-align: center; padding: 6px; }
+.workflow-step .wf-num {
+  font-size: 10px; font-weight: 800;
+  letter-spacing: 0.24em;
+  opacity: 0.55;
+  margin-bottom: 8px;
+  font-family: 'SF Mono', ui-monospace, Consolas, monospace;
+}
+.workflow-step .wf-icon {
+  font-size: 32px; display: block;
+  margin-bottom: 6px; line-height: 1;
+}
+.workflow-step .wf-title {
+  font-size: 17px; font-weight: 700;
+  margin-bottom: 6px; letter-spacing: -0.01em;
+}
+.workflow-step .wf-desc {
+  font-size: 12px; opacity: 0.78;
+  line-height: 1.5;
+}
+.workflow-arrow {
+  font-size: 22px;
+  color: rgba(255,255,255,0.4);
+  align-self: center;
+}
+
+/* ====== Centroid visual ====== */
+.centroid-viz {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  aspect-ratio: 1.2;
+  margin: 16px auto 12px;
+}
+.centroid-viz svg {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+}
+.centroid-dot {
+  position: absolute;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: var(--ig-white);
+  border: 2px solid var(--ig-pink);
+  transform: translate(-50%, -50%);
+  display: grid; place-items: center;
+  font-size: 18px;
+  box-shadow: 0 4px 12px rgba(225,48,108,0.15);
+  z-index: 2;
+}
+.centroid-center {
+  width: 96px; height: 96px;
+  background: var(--gradient-ig);
+  border: none;
+  box-shadow: 0 12px 36px rgba(225,48,108,0.45);
+  font-size: 38px;
+  color: var(--ig-white);
+  z-index: 3;
+}
+.centroid-label {
+  position: absolute;
+  padding: 6px 14px;
+  background: var(--ig-white);
+  border: 1px solid var(--ig-border);
+  border-radius: 999px;
+  font-size: 12px; font-weight: 600;
+  color: var(--ig-dark);
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  z-index: 4;
+}
+
+/* ====== Two-col (good / caveat) ====== */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 8px;
+}
+.two-col .col {
+  padding: 18px 22px;
+  border-radius: 14px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.two-col .col.good   { background: rgba(72,187,120,0.08);  border-left: 4px solid #2f855a; }
+.two-col .col.caveat { background: rgba(225,48,108,0.05); border-left: 4px solid var(--ig-pink); }
+.two-col .col h4 {
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  margin-bottom: 10px;
+  color: var(--ig-dark);
+}
+.two-col .col.good h4   { color: #2f855a; }
+.two-col .col.caveat h4 { color: var(--ig-pink); }
+.two-col .col ul { list-style: none; padding: 0; }
+.two-col .col li { padding: 3px 0; }
+.two-col .col li::before {
+  content: "•";
+  font-weight: 700;
+  margin-right: 8px;
+}
+.two-col .col.good li::before   { color: #2f855a; }
+.two-col .col.caveat li::before { color: var(--ig-pink); }
+
+/* ====== Nav & chrome ====== */
+.progress {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 3px; background: rgba(0,0,0,0.06);
+  z-index: 100;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--gradient-ig);
+  width: 0;
+  transition: width 0.4s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+body[data-theme="dark"] .progress { background: rgba(255,255,255,0.18); }
+body[data-theme="dark"] .progress-fill { background: var(--ig-white); }
+
+.nav {
+  position: fixed; bottom: 24px; right: 24px; z-index: 100;
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px;
+  background: rgba(255,255,255,0.88);
+  backdrop-filter: blur(14px);
+  border-radius: 999px;
+  border: 1px solid var(--ig-border);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+}
+body[data-theme="dark"] .nav {
+  background: rgba(0,0,0,0.28);
+  border-color: rgba(255,255,255,0.3);
+}
+.nav button {
+  border: none; width: 38px; height: 38px;
+  border-radius: 50%;
+  background: var(--gradient-ig);
+  color: var(--ig-white);
+  font-size: 20px; font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s, opacity 0.2s;
+  line-height: 1;
+}
+.nav button:hover:not(:disabled) { transform: scale(1.06); }
+.nav button:disabled { opacity: 0.3; cursor: not-allowed; }
+.nav .counter {
+  font-size: 13px; font-weight: 600;
+  color: var(--ig-dark);
+  min-width: 56px; text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+body[data-theme="dark"] .nav .counter { color: var(--ig-white); }
+
+.hint {
+  position: fixed; bottom: 24px; left: 24px; z-index: 100;
+  font-size: 12px;
+  color: var(--ig-gray);
+  background: rgba(255,255,255,0.88);
+  backdrop-filter: blur(14px);
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--ig-border);
+  display: flex; align-items: center; gap: 6px;
+}
+body[data-theme="dark"] .hint {
+  background: rgba(0,0,0,0.28);
+  border-color: rgba(255,255,255,0.3);
+  color: rgba(255,255,255,0.85);
+}
+.hint kbd {
+  background: var(--ig-light);
+  border: 1px solid var(--ig-border);
+  padding: 2px 6px; border-radius: 4px;
+  font-family: 'SF Mono', Consolas, monospace;
+  font-size: 11px; color: var(--ig-dark);
+}
+body[data-theme="dark"] .hint kbd {
+  background: rgba(255,255,255,0.15);
+  border-color: rgba(255,255,255,0.3);
+  color: var(--ig-white);
+}
+
+@media (max-width: 768px) {
+  .slide { padding: 48px 28px; }
+  .brand { top: 16px; left: 16px; font-size: 22px; }
+  .hint { display: none; }
+  .nav { bottom: 14px; right: 14px; }
+}
+</style>
+</head>
+<body data-theme="dark">
+
+<div class="brand">Beer And Code</div>
+
+<div class="deck">
+
+  <!-- ============ SLIDE 1: TÍTULO ============ -->
+  <section class="slide slide-gradient slide-title active" data-theme="dark">
+    <div class="slide-content">
+      <h1>Embeddings<span class="title-script">não são só para RAG</span></h1>
+      <p class="subtitle">
+        O motor silencioso por trás do feed do Instagram, da busca do Google,
+        das recomendações da Netflix, e do que você vai construir depois dessa aula.
+      </p>
+      <div class="author">
+        <span class="author-avatar">L</span>
+        Workshop Instagram · Engenharia de IA
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 2: HOOK ============ -->
+  <section class="slide" data-theme="light">
+    <div class="slide-content">
+      <span class="eyebrow">O que você vai levar daqui</span>
+      <p class="hook">
+        Embedding não é um truque de <em>chatbot</em>.<br>
+        É o motor silencioso do Netflix, do Spotify,<br>
+        do Google, e do feed que você rolou hoje <em>de manhã</em>.
+      </p>
+      <div style="margin-top: 40px;">
+        <span class="pill">RAG é só 1 das 8 aplicações que vamos mapear hoje</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 3: PERGUNTA-GUIA ============ -->
+  <section class="slide" data-theme="light">
+    <div class="slide-content">
+      <span class="eyebrow">Ato 1 · O que é um embedding</span>
+      <h2 class="slide-heading">
+        Como um computador entende<br>
+        que <span class="accent">'cachorro'</span> e <span class="accent">'cão'</span><br>
+        querem dizer a mesma coisa?
+      </h2>
+      <p class="slide-sub">
+        E como ele sabe, ao mesmo tempo, que <em>'cachorro'</em> e <em>'guitarra'</em>
+        não têm nada a ver, mesmo sem nunca ter visto nenhuma das duas palavras antes?
+      </p>
+      <div style="margin-top: 28px;">
+        <div class="wordpair near">
+          <span class="word">cachorro</span>
+          <span class="rel">≈</span>
+          <span class="word">cão</span>
+          <span class="note">deveriam ficar perto</span>
+        </div>
+        <div class="wordpair far">
+          <span class="word">cachorro</span>
+          <span class="rel">≠</span>
+          <span class="word">guitarra</span>
+          <span class="note">deveriam ficar longe</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 4: ONE-HOT / ÍNDICE NUMÉRICO (anos 50-60) ============ -->
+  <section class="slide" data-theme="light">
+    <div class="slide-content">
+      <span class="eyebrow">A primeira tentativa · anos 1950–60</span>
+      <h2 class="slide-heading">
+        A solução óbvia:<br>
+        dar um <span class="accent">número</span> para cada palavra.
+      </h2>
+      <p class="slide-sub">
+        Os primeiros sistemas de processamento de linguagem simplesmente
+        montavam um dicionário e atribuíam um índice único a cada palavra.
+      </p>
+
+      <div class="onehot-demo">
+        <div class="onehot-row">
+          <span class="onehot-word">cachorro</span>
+          <div class="onehot-vec">
+            <div class="cell on">1</div>
+            <div class="cell">0</div>
+            <div class="cell">0</div>
+            <div class="cell">0</div>
+            <div class="cell">0</div>
+            <div class="cell">…</div>
+          </div>
+        </div>
+        <div class="onehot-row">
+          <span class="onehot-word">cão</span>
+          <div class="onehot-vec">
+            <div class="cell">0</div>
+            <div class="cell on">1</div>
+            <div class="cell">0</div>
+            <div class="cell">0</div>
+            <div class="cell">0</div>
+            <div class="cell">…</div>
+          </div>
+        </div>
+        <div class="onehot-row">
+          <span class="onehot-word">guitarra</span>
+          <div class="onehot-vec">
+            <div class="cell">0</div>
+            <div class="cell">0</div>
+            <div class="cell on">1</div>
+            <div class="cell">0</div>
+            <div class="cell">0</div>
+            <div class="cell">…</div>
+          </div>
+        </div>
+        <div class="onehot-row">
+          <span class="onehot-word">gato</span>
+          <div class="onehot-vec">
+            <div class="cell">0</div>
+            <div class="cell">0</div>
+            <div class="cell">0</div>
+            <div class="cell on">1</div>
+            <div class="cell">0</div>
+            <div class="cell">…</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="problem-note">
+        <strong>Problema:</strong> para o computador, <em>cachorro</em> e <em>cão</em> estão tão
+        distantes quanto <em>cachorro</em> e <em>guitarra</em> — todos os vetores têm
+        distância idêntica entre si. O número não carrega nenhum significado.
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 5: DISTRIBUTIONAL HYPOTHESIS ============ -->
+  <section class="slide" data-theme="light">
+    <div class="slide-content">
+      <span class="eyebrow">A grande virada · 1957</span>
+
+      <div class="quote-block">
+        <p class="quote-text">You shall know a word<br>by the company it keeps.</p>
+        <p class="quote-author">— J. R. Firth, linguista britânico</p>
+      </div>
+
+      <div class="quote-translation">
+        <strong>Traduzindo:</strong> uma palavra é definida pelo <em>contexto</em>
+        em que ela aparece. Se duas palavras vivem em frases parecidas,
+        elas provavelmente significam coisas parecidas.
+      </div>
+
+      <div class="example">
+        <strong>"O <span class="blank"></span> latiu para o carteiro."</strong>
+        <div class="words">
+          palavras que cabem aqui:
+          <span>cachorro</span><span>cão</span><span>vira-lata</span><span>pet</span><span>doberman</span>
+        </div>
+      </div>
+
+      <div style="margin-top: 36px;">
+        <span class="pill">
+          Em 2013 essa ideia virou um paper de MLE (word2vec). Hoje cabe em uma linha de código.
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 6: MAPA SEMÂNTICO 2D ============ -->
+  <section class="slide" data-theme="light">
+    <div class="slide-content">
+      <span class="eyebrow">A intuição</span>
+      <h2 class="slide-heading">
+        Agora imagine um <span class="accent">mapa</span><br>
+        onde palavras parecidas ficam perto.
+      </h2>
+      <p class="slide-sub">
+        Cada palavra vira um <strong>ponto</strong>. Quanto mais parecido o significado,
+        menor a distância. Sem regras, sem dicionário, só estatística sobre contextos.
+      </p>
+
+      <div class="sem-map">
+        <span class="sem-label" style="top: 14px; left: 14px;">PETS</span>
+        <span class="sem-chip c-pets" style="top: 22%; left: 18%;">cachorro</span>
+        <span class="sem-chip c-pets" style="top: 14%; left: 30%;">cão</span>
+        <span class="sem-chip c-pets" style="top: 32%; left: 28%;">vira-lata</span>
+        <span class="sem-chip c-pets" style="top: 24%; left: 42%;">gato</span>
+        <span class="sem-chip c-pets" style="top: 40%; left: 14%;">pet</span>
+
+        <span class="sem-label" style="top: 14px; right: 14px;">MÚSICA</span>
+        <span class="sem-chip c-music" style="top: 18%; left: 72%;">guitarra</span>
+        <span class="sem-chip c-music" style="top: 30%; left: 84%;">violão</span>
+        <span class="sem-chip c-music" style="top: 12%; left: 88%;">piano</span>
+        <span class="sem-chip c-music" style="top: 36%; left: 74%;">bateria</span>
+
+        <span class="sem-label" style="bottom: 14px; left: 14px;">COMIDA</span>
+        <span class="sem-chip c-food" style="top: 66%; left: 16%;">pizza</span>
+        <span class="sem-chip c-food" style="top: 78%; left: 28%;">hambúrguer</span>
+        <span class="sem-chip c-food" style="top: 70%; left: 36%;">sushi</span>
+        <span class="sem-chip c-food" style="top: 86%; left: 18%;">café</span>
+
+        <span class="sem-label" style="bottom: 14px; right: 14px;">TECH</span>
+        <span class="sem-chip c-tech" style="top: 64%; left: 72%;">notebook</span>
+        <span class="sem-chip c-tech" style="top: 78%; left: 84%;">código</span>
+        <span class="sem-chip c-tech" style="top: 70%; left: 88%;">celular</span>
+        <span class="sem-chip c-tech" style="top: 86%; left: 74%;">teclado</span>
+      </div>
+
+      <div style="margin-top: 20px;">
+        <span class="pill">
+          Na vida real não são 2 dimensões, são <strong>1.536</strong>. Mas a ideia é a mesma.
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 6: WORD2VEC (REI, HOMEM + MULHER = RAINHA) ============ -->
+  <section class="slide" data-theme="light">
+    <div class="slide-content">
+      <span class="eyebrow">A primeira máquina · 2013</span>
+      <h2 class="slide-heading">
+        Word2vec: o <span class="accent">hit</span><br>
+        que mudou tudo.
+      </h2>
+      <p class="slide-sub">
+        Uma rede neural rasa, treinada pra prever palavras a partir do contexto.
+        Aprendeu sozinha que os vetores não só guardam <em>significado</em>,
+        guardam <em>relações</em>. A prova virou a analogia mais famosa da NLP:
+      </p>
+
+      <div class="w2v-eq">
+        <div class="w2v-term">
+          <div class="term-label">rei</div>
+          <div class="term-sub">vetor</div>
+        </div>
+        <span class="w2v-op">−</span>
+        <div class="w2v-term">
+          <div class="term-label">homem</div>
+          <div class="term-sub">vetor</div>
+        </div>
+        <span class="w2v-op">+</span>
+        <div class="w2v-term">
+          <div class="term-label">mulher</div>
+          <div class="term-sub">vetor</div>
+        </div>
+        <span class="w2v-op">≈</span>
+        <div class="w2v-term target">
+          <div class="term-label">rainha</div>
+          <div class="term-sub">resultado</div>
+        </div>
+      </div>
+
+      <p class="slide-sub" style="margin-top: 28px; max-width: 900px;">
+        Ou seja: a direção "masculino → feminino" no espaço vetorial existe,
+        é consistente, e funciona pra centenas de pares, sem ninguém ter ensinado.
+        O modelo <em>descobriu</em>.
+      </p>
+
+      <div style="margin-top: 24px;">
+        <span class="pill">
+          Isso destravou a NLP moderna. Em 2013 era paper do Mikolov no Google; hoje é uma dependência de pip.
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 7: CONTEXTO (transformers) ============ -->
+  <section class="slide" data-theme="light">
+    <div class="slide-content">
+      <span class="eyebrow">Próximo salto · 2018</span>
+      <h2 class="slide-heading">
+        Mas palavras<br>
+        <span class="accent">não têm significado fixo</span>.
+      </h2>
+      <p class="slide-sub">
+        Word2vec dava 1 vetor por palavra. Mas "banco" em frases diferentes
+        quer dizer coisas diferentes, e o modelo tinha que escolher uma só.
+      </p>
+
+      <div class="ctx-grid">
+        <div class="ctx-card">
+          <p class="ctx-sentence">Sentei no <mark>banco</mark> da praça.</p>
+          <div class="ctx-vec-bars">
+            <span class="bar" style="height: 70%;"></span>
+            <span class="bar" style="height: 22%;"></span>
+            <span class="bar" style="height: 85%;"></span>
+            <span class="bar" style="height: 40%;"></span>
+            <span class="bar" style="height: 55%;"></span>
+            <span class="bar" style="height: 72%;"></span>
+            <span class="bar" style="height: 30%;"></span>
+            <span class="bar" style="height: 65%;"></span>
+            <span class="bar" style="height: 48%;"></span>
+            <span class="bar" style="height: 78%;"></span>
+          </div>
+          <p class="ctx-vec-label">[ 0.71, −0.22, 0.85, 0.40, … ]</p>
+        </div>
+        <div class="ctx-card">
+          <p class="ctx-sentence">Abri conta num <mark>banco</mark> digital.</p>
+          <div class="ctx-vec-bars">
+            <span class="bar" style="height: 38%;"></span>
+            <span class="bar" style="height: 90%;"></span>
+            <span class="bar" style="height: 18%;"></span>
+            <span class="bar" style="height: 62%;"></span>
+            <span class="bar" style="height: 80%;"></span>
+            <span class="bar" style="height: 25%;"></span>
+            <span class="bar" style="height: 58%;"></span>
+            <span class="bar" style="height: 38%;"></span>
+            <span class="bar" style="height: 86%;"></span>
+            <span class="bar" style="height: 28%;"></span>
+          </div>
+          <p class="ctx-vec-label">[ 0.38, 0.90, −0.18, 0.62, … ]</p>
+        </div>
+      </div>
+
+      <p class="slide-sub" style="max-width: 1000px; margin-bottom: 18px;">
+        Em 2018 os <strong>transformers</strong> (BERT) resolveram isso: o vetor de cada palavra
+        passou a depender da frase inteira. Mesma palavra, contextos diferentes, vetores diferentes.
+      </p>
+
+      <span class="pill">
+        Em 2019 o Google anunciou: BERT agora é peça central da busca. Maior atualização em 5 anos.
+      </span>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 8: FORMALIZAÇÃO ============ -->
+  <section class="slide" data-theme="light">
+    <div class="slide-content">
+      <span class="eyebrow">Formalmente</span>
+      <h2 class="slide-heading">
+        Um embedding é um <span class="accent">ponto</span>.
+      </h2>
+      <p class="slide-sub">
+        Nada mais que isso. Um vetor de N números reais.
+        Dois conteúdos com significado parecido produzem pontos perto; diferentes, pontos longe.
+      </p>
+
+      <div class="formula-block">
+        <div class="formula-line">
+          <span class="f-label">A transformação</span>
+          embedding: 📄 <span class="op">→</span> ℝ<sup><span class="num">1536</span></sup>
+        </div>
+        <div class="formula-line">
+          <span class="f-label">Como medir "perto"</span>
+          sim(a, b) = <span class="op">cos</span>(θ) = (a <span class="op">·</span> b) / (‖a‖ × ‖b‖)
+        </div>
+        <div class="formula-line">
+          <span class="f-label">Na prática</span>
+          <span class="num">1.0</span> idêntico &nbsp;·&nbsp; <span class="num">0.8+</span> muito parecido &nbsp;·&nbsp; <span class="num">0.0</span> sem relação
+        </div>
+      </div>
+
+      <span class="pill">
+        Esses 1.536 números são o que a gente guarda no Postgres via pgvector.
+      </span>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 9: MULTIMODAL ============ -->
+  <section class="slide" data-theme="light">
+    <div class="slide-content">
+      <span class="eyebrow">Hoje · 2026</span>
+      <h2 class="slide-heading">
+        Não são só palavras.<br>
+        É <span class="accent">tudo</span>.
+      </h2>
+      <p class="slide-sub">
+        Texto, imagem, áudio, vídeo, todos no mesmo espaço vetorial.
+        Você pode buscar <em>"gato deitado na janela"</em> e encontrar uma <strong>foto</strong>.
+        Ou tocar uma melodia e achar a <strong>música</strong>.
+      </p>
+
+      <div class="modal-diagram">
+        <div class="modal-sources">
+          <div class="modal-source"><span class="icon">📄</span>Texto</div>
+          <div class="modal-source"><span class="icon">🖼️</span>Imagem</div>
+          <div class="modal-source"><span class="icon">🎵</span>Áudio</div>
+          <div class="modal-source"><span class="icon">🎬</span>Vídeo</div>
+        </div>
+        <div class="modal-arrow">→</div>
+        <div class="modal-space">
+          <div class="label">ESPAÇO VETORIAL COMUM</div>
+          <div class="dim">ℝ<sup>1.536</sup></div>
+        </div>
+      </div>
+
+      <p class="slide-sub" style="margin-top: 4px; margin-bottom: 18px;">
+        Em 5 slides você cruzou de <strong>1957 até 2026</strong>.
+        Agora a pergunta muda: <em>pra que serve</em>?
+      </p>
+
+      <span class="pill">
+        Em 2020 isso era tese de PhD. Em 2026 é <code>Gemini::embed($arquivo)</code>.
+      </span>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 10: AGENDA DO ATO 2 ============ -->
+  <section class="slide" data-theme="light">
+    <div class="slide-content">
+      <span class="eyebrow">Ato 2 · o mapa</span>
+      <h2 class="slide-heading">
+        RAG é uma das oito.<br>
+        <span class="accent">Vamos mapear todas.</span>
+      </h2>
+      <p class="slide-sub">
+        A mesma operação, transformar em vetor, medir distância, resolve oito problemas
+        completamente diferentes. Cada um deles era produto de big tech cinco anos atrás.
+      </p>
+
+      <div class="app-grid">
+        <div class="app-card">
+          <span class="num">01</span>
+          <span class="app-icon">🔍</span>
+          <div class="app-title">Busca semântica</div>
+          <p class="app-desc">Achar pelo significado, não pela palavra exata.</p>
+        </div>
+        <div class="app-card highlight">
+          <span class="num">02</span>
+          <span class="app-icon">📱</span>
+          <div class="app-title">Recomendação</div>
+          <p class="app-desc">Filtrar o que importa pra cada usuário. ← O que vamos fazer hoje.</p>
+        </div>
+        <div class="app-card">
+          <span class="num">03</span>
+          <span class="app-icon">🧩</span>
+          <div class="app-title">Clustering</div>
+          <p class="app-desc">Descobrir temas em conteúdo sem nenhuma label.</p>
+        </div>
+        <div class="app-card">
+          <span class="num">04</span>
+          <span class="app-icon">🚨</span>
+          <div class="app-title">Anomalia &amp; fraude</div>
+          <p class="app-desc">O que destoa do padrão "normal" histórico.</p>
+        </div>
+        <div class="app-card">
+          <span class="num">05</span>
+          <span class="app-icon">🧼</span>
+          <div class="app-title">Deduplicação</div>
+          <p class="app-desc">Achar duplicatas mesmo quando reescritas.</p>
+        </div>
+        <div class="app-card">
+          <span class="num">06</span>
+          <span class="app-icon">🏷️</span>
+          <div class="app-title">Zero-shot</div>
+          <p class="app-desc">Classificar sem treinar modelo nenhum.</p>
+        </div>
+        <div class="app-card">
+          <span class="num">07</span>
+          <span class="app-icon">⚖️</span>
+          <div class="app-title">Moderação</div>
+          <p class="app-desc">Bloquear o que é "parecido com" conteúdo proibido.</p>
+        </div>
+        <div class="app-card">
+          <span class="num">08</span>
+          <span class="app-icon">🎯</span>
+          <div class="app-title">Matching</div>
+          <p class="app-desc">Conectar pessoas, produtos, vagas pelo significado.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 11: BUSCA SEMÂNTICA ============ -->
+  <section class="slide" data-theme="light">
+    <div class="slide-content">
+      <span class="eyebrow">01 · Busca semântica</span>
+      <h2 class="slide-heading">
+        Você digita uma <span class="accent">ideia</span>.<br>
+        A máquina devolve <span class="accent">significado</span>.
+      </h2>
+      <p class="slide-sub">
+        A busca tradicional compara letras. A semântica compara vetores.
+        Não importa se a query e o resultado compartilham uma palavra sequer.
+      </p>
+
+      <div class="sem-search">
+        <div class="sem-query">
+          <span class="q-label">Query</span>
+          <span class="q-text">🔍 "som pra correr de manhã com energia"</span>
+        </div>
+
+        <div class="sem-results">
+          <div class="sem-result">
+            <span class="r-text">🎵 <em>Stronger</em>, Kanye West</span>
+            <span class="r-score">0.87</span>
+          </div>
+          <div class="sem-result">
+            <span class="r-text">🎵 <em>Run Boy Run</em>, Woodkid</span>
+            <span class="r-score">0.84</span>
+          </div>
+          <div class="sem-result">
+            <span class="r-text">🎵 <em>Eye of the Tiger</em>, Survivor</span>
+            <span class="r-score">0.82</span>
+          </div>
+          <div class="sem-result">
+            <span class="r-text">🎵 <em>Blinding Lights</em>, The Weeknd</span>
+            <span class="r-score">0.79</span>
+          </div>
+        </div>
+
+        <div class="sem-callout">
+          <strong>Repara:</strong> nenhum dos títulos contém "correr", "manhã" ou "energia".
+          A busca achou pelo <em>vibe</em>, não pela palavra.
+        </div>
+      </div>
+
+      <span class="pill">
+        Spotify, YouTube, Pinterest, Airbnb, todos rodam busca semântica por trás desde ~2022.
+      </span>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 12: RECOMENDAÇÃO (ponte pra implementação) ============ -->
+  <section class="slide" data-theme="light">
+    <div class="slide-content">
+      <span class="eyebrow">02 · Recomendação · o que vamos construir</span>
+      <h2 class="slide-heading">
+        É assim que funciona<br>
+        o feed que <span class="accent">você vai construir</span>.
+      </h2>
+      <p class="slide-sub">
+        Mesma primitiva, pergunta nova: <em>"o que combina com este usuário, agora?"</em>.
+        O usuário vira um vetor. O feed vira uma busca de vizinhos mais próximos.
+        O ranking vira uma soma de cossenos.
+      </p>
+
+      <div class="reco-flow">
+        <div class="reco-stage">
+          <span class="stage-icon">👤</span>
+          <div class="stage-title">1. Usuário vira vetor</div>
+          <div class="stage-sub">centroid, média dos posts que ele curtiu, viu e comentou</div>
+        </div>
+        <span class="reco-arrow">→</span>
+        <div class="reco-stage">
+          <span class="stage-icon">🎯</span>
+          <div class="stage-title">2. Busca por vizinhos</div>
+          <div class="stage-sub">pgvector retorna os N posts mais próximos, já ordenados</div>
+        </div>
+        <span class="reco-arrow">→</span>
+        <div class="reco-stage active">
+          <span class="stage-icon">📱</span>
+          <div class="stage-title">3. Esse é o feed</div>
+          <div class="stage-sub">Proximidade pura</div>
+        </div>
+      </div>
+
+      <div class="formula-block" style="margin: 10px 0 18px;">
+        <div class="formula-line" style="padding: 16px 22px; font-size: 15px;">
+          <span class="f-label">Tudo isso em uma linha de SQL</span>
+          SELECT id FROM posts ORDER BY embedding <span class="op">&lt;=&gt;</span> $user_centroid LIMIT <span class="num">20</span>;
+        </div>
+      </div>
+
+      <p class="slide-sub" style="margin: 0 0 16px; font-size: 15px; max-width: 1040px;">
+        Esse é o MVP, 3 passos, uma query. <strong>Depois</strong> a gente evolui:
+        boosts de recência e trending, MMR pra diversidade, penalização com avoid, exploração.
+      </p>
+
+      <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+        <span class="pill">
+          O núcleo do feed de qualquer rede social cabe nessa query.
+        </span>
+        <span class="build-badge">bora implementar</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 13: BORA PRO CÓDIGO, PASSOS 1-4 ============ -->
+  <section class="slide" data-theme="light">
+    <div class="slide-content">
+      <span class="eyebrow">Mão na massa · passo 1</span>
+      <h2 class="slide-heading">
+        Bora pro <span class="accent">código</span>.
+      </h2>
+      <p class="slide-sub">
+        Primeiro objetivo: fazer o Instagram gerar um embedding toda vez que alguém posta.
+        Quatro pedaços conversando entre si, Laravel puro, sem framework de ML.
+      </p>
+
+      <div class="code-roadmap">
+        <div class="code-step">
+          <span class="step-num">01</span>
+          <div class="step-body">
+            <div class="step-title">Migration + Model</div>
+            <div class="step-sub">tabela com coluna <code>vector(1536)</code> e índice HNSW · model Eloquent ligando ao Post</div>
+          </div>
+          <span class="step-tag">post_embeddings</span>
+        </div>
+
+        <div class="code-step">
+          <span class="step-num">02</span>
+          <div class="step-body">
+            <div class="step-title">Service</div>
+            <div class="step-sub">cliente HTTP pra API de embeddings do Gemini · recebe texto e mídia, devolve 1.536 floats</div>
+          </div>
+          <span class="step-tag">GeminiEmbeddingService</span>
+        </div>
+
+        <div class="code-step">
+          <span class="step-num">03</span>
+          <div class="step-body">
+            <div class="step-title">Observer</div>
+            <div class="step-sub">escuta <code>created</code> e <code>updated</code> no Post e dispara o job automaticamente</div>
+          </div>
+          <span class="step-tag">PostObserver</span>
+        </div>
+
+        <div class="code-step">
+          <span class="step-num">04</span>
+          <div class="step-body">
+            <div class="step-title">Job</div>
+            <div class="step-sub">chama o service, persiste o vetor, tratamento de erro e retry assíncrono na fila</div>
+          </div>
+          <span class="step-tag">GeneratePostEmbeddingJob</span>
+        </div>
+      </div>
+
+      <span class="pill">
+        Com esses 4 pedaços rodando, todo post novo nasce com vetor, automaticamente.
+      </span>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 14: DISTÂNCIAS (operadores pgvector) ============ -->
+  <section class="slide" data-theme="light">
+    <div class="slide-content">
+      <span class="eyebrow">pgvector · operadores de distância</span>
+      <h2 class="slide-heading">
+        Três formas de medir <span class="accent">"perto"</span>.
+      </h2>
+      <p class="slide-sub">
+        Pense num vetor como uma <strong>seta</strong>: tem <em>direção</em> (pra onde aponta)
+        e <em>comprimento</em> (quão longa é). Cada operador olha pra essa seta de um jeito diferente.
+      </p>
+
+      <div class="ops-grid">
+        <div class="op-card">
+          <span class="op-symbol">&lt;-&gt;</span>
+          <h3>L2 / Euclidiana</h3>
+          <div class="op-question">"Qual a distância entre as pontas das setas?"</div>
+          <div class="op-rows">
+            <div class="op-row"><span class="k">Olha pra</span><span class="v">direção + comprimento</span></div>
+            <div class="op-row"><span class="k">Exemplo</span><span class="v">duas setas na mesma direção mas de tamanhos diferentes → <strong>longe</strong></span></div>
+          </div>
+          <div class="op-when">
+            Usar quando os números da seta <em>são</em> coordenadas reais, ex: GPS, pixel a pixel de uma imagem.
+          </div>
+        </div>
+
+        <div class="op-card featured" style="position: relative;">
+          <span class="op-star">⭐</span>
+          <span class="op-symbol">&lt;=&gt;</span>
+          <h3>Cosseno</h3>
+          <div class="op-question">"Qual o ângulo entre as duas setas?"</div>
+          <div class="op-rows">
+            <div class="op-row"><span class="k">Olha pra</span><span class="v">só a direção, ignora o comprimento</span></div>
+            <div class="op-row"><span class="k">Exemplo</span><span class="v">duas setas na mesma direção mas de tamanhos diferentes → <strong>idênticas</strong></span></div>
+          </div>
+          <div class="op-when">
+            Usar quando o <em>significado</em> está na direção, não no tamanho, embeddings de texto, imagem, áudio.
+          </div>
+        </div>
+
+        <div class="op-card">
+          <span class="op-symbol">&lt;#&gt;</span>
+          <h3>Produto Interno</h3>
+          <div class="op-question">"Quanto uma seta projeta na outra?"</div>
+          <div class="op-rows">
+            <div class="op-row"><span class="k">Olha pra</span><span class="v">direção + comprimento (misturados)</span></div>
+            <div class="op-row"><span class="k">Truque</span><span class="v">se as setas têm comprimento 1, vira cosseno, só que mais rápido</span></div>
+          </div>
+          <div class="op-when">
+            Usar quando o modelo <em>garante</em> que os vetores saem normalizados (OpenAI, por exemplo).
+          </div>
+        </div>
+      </div>
+
+      <div class="insight-note">
+        <span class="insight-label">O conceito que fecha tudo</span>
+        <strong>Normalizar</strong> um vetor é forçar ele a ter comprimento 1. Isso "joga fora" o tamanho e deixa só a direção.
+        Alguns modelos (OpenAI) normalizam automaticamente; o <strong>Gemini não garante</strong>.
+        Por isso <strong>cosseno</strong> aqui: ele funciona com qualquer comprimento, enxerga só a direção, que é onde o significado mora.
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 15: ÍNDICES (tipos pgvector) ============ -->
+  <section class="slide" data-theme="light">
+    <div class="slide-content">
+      <span class="eyebrow">pgvector · tipos de índice</span>
+      <h2 class="slide-heading">
+        Sem índice, busca é <span class="accent">O(n)</span>.<br>
+        Com índice, <span class="accent">O(log n)</span>.
+      </h2>
+      <p class="slide-sub">
+        Três estratégias, três trade-offs entre precisão, velocidade e custo de manutenção.
+      </p>
+
+      <div class="ops-grid">
+        <div class="op-card">
+          <span class="op-symbol">Flat</span>
+          <h3>Sem índice</h3>
+          <div class="op-formula">scan completo</div>
+          <div class="op-rows">
+            <div class="op-row"><span class="k">Precisão</span><span class="v">100% (exato)</span></div>
+            <div class="op-row"><span class="k">Velocidade</span><span class="v">O(n)</span></div>
+            <div class="op-row"><span class="k">Memória</span><span class="v">baixa</span></div>
+            <div class="op-row"><span class="k">Build</span><span class="v">zero</span></div>
+          </div>
+          <div class="op-when">
+            Usar em dev, testes, ou tabelas com menos de ~10k vetores.
+          </div>
+        </div>
+
+        <div class="op-card">
+          <span class="op-symbol">IVFFlat</span>
+          <h3>Clusters</h3>
+          <div class="op-formula">k-means + scan parcial</div>
+          <div class="op-rows">
+            <div class="op-row"><span class="k">Precisão</span><span class="v">~95% (aprox.)</span></div>
+            <div class="op-row"><span class="k">Velocidade</span><span class="v">O(√n)</span></div>
+            <div class="op-row"><span class="k">Memória</span><span class="v">média</span></div>
+            <div class="op-row"><span class="k">Build</span><span class="v">precisa treinar</span></div>
+          </div>
+          <div class="op-when">
+            Usar quando dataset é <em>estável</em> e cabe re-treinar o índice de vez em quando.
+          </div>
+        </div>
+
+        <div class="op-card featured" style="position: relative;">
+          <span class="op-star">⭐</span>
+          <span class="op-symbol">HNSW</span>
+          <h3>Grafo navegável</h3>
+          <div class="op-formula">hierarchical small-world graph</div>
+          <div class="op-rows">
+            <div class="op-row"><span class="k">Precisão</span><span class="v">~98% (aprox.)</span></div>
+            <div class="op-row"><span class="k">Velocidade</span><span class="v">O(log n)</span></div>
+            <div class="op-row"><span class="k">Memória</span><span class="v">alta</span></div>
+            <div class="op-row"><span class="k">Build</span><span class="v">sem training</span></div>
+          </div>
+          <div class="op-when">
+            Usar quando o <em>dataset muda o tempo todo</em>, aceita insert/delete sem reconstruir.
+          </div>
+        </div>
+      </div>
+
+      <span class="pill">
+        Neste projeto: HNSW + cosine. O Instagram recebe posts o tempo todo, não dá pra parar pra re-treinar.
+      </span>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 16: CENTROID (o gosto do usuário) ============ -->
+  <section class="slide" data-theme="light">
+    <div class="slide-content">
+      <span class="eyebrow">02 · Recomendação · centroid</span>
+      <h2 class="slide-heading">
+        O gosto de alguém<br>
+        é a <span class="accent">média</span> do que ele consome.
+      </h2>
+      <p class="slide-sub">
+        Centroid = centro de gravidade. Pega os posts que o usuário curtiu,
+        tira a média dos vetores. O resultado é um único ponto no espaço vetorial
+        que representa o "onde ele mora" semanticamente.
+      </p>
+
+      <div class="centroid-viz">
+        <svg viewBox="0 0 100 85" preserveAspectRatio="none">
+          <line x1="22" y1="20" x2="50" y2="50" stroke="rgba(225,48,108,0.35)" stroke-width="0.4" stroke-dasharray="1.5,1.5" />
+          <line x1="75" y1="18" x2="50" y2="50" stroke="rgba(225,48,108,0.35)" stroke-width="0.4" stroke-dasharray="1.5,1.5" />
+          <line x1="15" y1="58" x2="50" y2="50" stroke="rgba(225,48,108,0.35)" stroke-width="0.4" stroke-dasharray="1.5,1.5" />
+          <line x1="82" y1="60" x2="50" y2="50" stroke="rgba(225,48,108,0.35)" stroke-width="0.4" stroke-dasharray="1.5,1.5" />
+          <line x1="45" y1="78" x2="50" y2="50" stroke="rgba(225,48,108,0.35)" stroke-width="0.4" stroke-dasharray="1.5,1.5" />
+        </svg>
+        <span class="centroid-dot" style="top: 22%; left: 22%;">❤️</span>
+        <span class="centroid-dot" style="top: 20%; left: 75%;">❤️</span>
+        <span class="centroid-dot" style="top: 65%; left: 15%;">❤️</span>
+        <span class="centroid-dot" style="top: 68%; left: 82%;">❤️</span>
+        <span class="centroid-dot" style="top: 88%; left: 45%;">❤️</span>
+        <span class="centroid-dot centroid-center" style="top: 55%; left: 50%;">👤</span>
+        <span class="centroid-label" style="top: 4%; left: 50%;">posts curtidos</span>
+        <span class="centroid-label" style="top: 55%; left: 78%;">centroid = você</span>
+      </div>
+
+      <div class="two-col">
+        <div class="col good">
+          <h4>Por que funciona</h4>
+          <ul>
+            <li>O espaço vetorial já tem estrutura semântica: posts parecidos ficam perto.</li>
+            <li>A média cai na "zona" que o usuário mais frequenta.</li>
+            <li>Vizinhos desse ponto são, por construção, semanticamente alinhados.</li>
+            <li>Entrega o primeiro feed funcional em ~50 linhas de código.</li>
+          </ul>
+        </div>
+        <div class="col caveat">
+          <h4>O que ele não captura (ainda)</h4>
+          <ul>
+            <li>Tempo: post de 1 ano atrás pesa igual ao de hoje.</li>
+            <li>Intensidade: um like casual pesa igual a um comentário longo.</li>
+            <li>Sinais negativos: skip_fast, hide, report não aparecem.</li>
+            <li>Gostos múltiplos colapsam num ponto só.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 17: BORA PRO CÓDIGO, CENTROID (6 passos) ============ -->
+  <section class="slide" data-theme="light">
+    <div class="slide-content">
+      <span class="eyebrow">Mão na massa · passo 2</span>
+      <h2 class="slide-heading">
+        Bora implementar o <span class="accent">centroid</span>.
+      </h2>
+      <p class="slide-sub">
+        Seis pedaços: cria a coluna no usuário, um job pra calcular a média,
+        e um observer que dispara o job toda vez que o usuário curte ou descurte.
+      </p>
+
+      <div class="code-roadmap">
+        <div class="code-step">
+          <span class="step-num">01</span>
+          <div class="step-body">
+            <div class="step-title">Migration</div>
+            <div class="step-sub">coluna <code>embedding</code> em <code>users</code>, <code>vector(1536)</code> nullable</div>
+          </div>
+          <span class="step-tag">add_embedding_to_users</span>
+        </div>
+
+        <div class="code-step">
+          <span class="step-num">02</span>
+          <div class="step-body">
+            <div class="step-title">Model User</div>
+            <div class="step-sub">adicionar <code>embedding</code> ao <code>$fillable</code> e cast pra vector</div>
+          </div>
+          <span class="step-tag">App\Models\User</span>
+        </div>
+
+        <div class="code-step">
+          <span class="step-num">03</span>
+          <div class="step-body">
+            <div class="step-title">Job</div>
+            <div class="step-sub">pega os posts curtidos do usuário, faz a média dos embeddings, salva</div>
+          </div>
+          <span class="step-tag">CalculateUserCentroidJob</span>
+        </div>
+
+        <div class="code-step">
+          <span class="step-num">04</span>
+          <div class="step-body">
+            <div class="step-title">Observer</div>
+            <div class="step-sub">escuta <code>created</code> e <code>deleted</code> em Like e dispara o job</div>
+          </div>
+          <span class="step-tag">LikeObserver</span>
+        </div>
+
+        <div class="code-step">
+          <span class="step-num">05</span>
+          <div class="step-body">
+            <div class="step-title">Registro do observer</div>
+            <div class="step-sub">ligar o observer ao model via atributo <code>#[ObservedBy]</code></div>
+          </div>
+          <span class="step-tag">App\Models\Like</span>
+        </div>
+
+        <div class="code-step">
+          <span class="step-num">06</span>
+          <div class="step-body">
+            <div class="step-title">Ajuste no LikeButton</div>
+            <div class="step-sub">garantir que o unlike chama <code>Like::delete()</code> (dispara o evento <code>deleted</code>)</div>
+          </div>
+          <span class="step-tag">LikeButton (Livewire)</span>
+        </div>
+      </div>
+
+      <span class="pill">
+        Fim desses 6 passos: todo like/unlike recalcula o gosto do usuário em background.
+      </span>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 18: FEED RANQUEADO PELO CENTROID (5 passos) ============ -->
+  <section class="slide" data-theme="light">
+    <div class="slide-content">
+      <span class="eyebrow">Mão na massa · passo 3</span>
+      <h2 class="slide-heading">
+        Feed ranqueado pelo <span class="accent">centroid</span>.
+      </h2>
+      <p class="slide-sub">
+        Toda a prep está pronta: posts com embedding, usuário com centroid.
+        Agora é só mudar o feed, cinco ajustes pequenos no componente Livewire que já existe.
+      </p>
+
+      <div class="code-roadmap">
+        <div class="code-step">
+          <span class="step-num">01</span>
+          <div class="step-body">
+            <div class="step-title">Ponto de partida</div>
+            <div class="step-sub">o feed atual lista posts em ordem cronológica, <code>latest()</code> direto no model</div>
+          </div>
+          <span class="step-tag">Feed\Index (antes)</span>
+        </div>
+
+        <div class="code-step">
+          <span class="step-num">02</span>
+          <div class="step-body">
+            <div class="step-title">Filtrar posts sem embedding</div>
+            <div class="step-sub">posts recém-criados ainda estão na fila, tira eles do feed pra não dar erro na distância</div>
+          </div>
+          <span class="step-tag">whereNotNull('embedding')</span>
+        </div>
+
+        <div class="code-step">
+          <span class="step-num">03</span>
+          <div class="step-body">
+            <div class="step-title">Ordenar pela distância ao centroid</div>
+            <div class="step-sub">pgvector resolve em uma linha: <code>ORDER BY embedding &lt;=&gt; $user-&gt;embedding</code></div>
+          </div>
+          <span class="step-tag">orderByRaw('embedding &lt;=&gt; ?')</span>
+        </div>
+
+        <div class="code-step">
+          <span class="step-num">04</span>
+          <div class="step-body">
+            <div class="step-title">Ajustar a contagem da paginação</div>
+            <div class="step-sub">o total precisa refletir só os posts com embedding, senão a paginação quebra no fim</div>
+          </div>
+          <span class="step-tag">paginate(20)</span>
+        </div>
+
+        <div class="code-step">
+          <span class="step-num">05</span>
+          <div class="step-body">
+            <div class="step-title">Resultado final da render</div>
+            <div class="step-sub">a view não muda uma linha, os mesmos posts, em nova ordem</div>
+          </div>
+          <span class="step-tag">feed.blade.php</span>
+        </div>
+      </div>
+
+      <span class="pill">
+        5 ajustes no feed que já existia. Nenhum service novo. O feed deixou de ser cronológico e virou recomendação personalizada.
+      </span>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 19: MANIFESTO ERA DA IA ============ -->
+  <section class="slide" data-theme="light">
+    <div class="slide-content">
+      <span class="eyebrow">Era da IA</span>
+      <h2 class="slide-heading">
+        "Usar um modelo" não é mais diferencial.<br>
+        <span class="accent">Arquitetar com</span> um modelo é.
+      </h2>
+      <p class="slide-sub">
+        Todo dev tem acesso ao mesmo Gemini, à mesma OpenAI, ao mesmo Claude.
+        O que muda o resultado é como você <strong>monta as peças em volta</strong>.
+        O diferencial do verdadeiro Engenheiro de IA é construir a arquitetura de solução que torna esses modelos imbatíveis..
+      </p>
+
+      <div class="pillar-grid">
+        <div class="pillar">
+          <span class="pillar-icon">🏗️</span>
+          <div class="pillar-title">Pensar a solução</div>
+          <p class="pillar-body">
+            Saber o que o modelo entrega, o que ele <em>não</em> entrega, e desenhar
+            as camadas em volta: dados, cache, fila, observabilidade, fallback.
+          </p>
+        </div>
+        <div class="pillar">
+          <span class="pillar-icon">🎯</span>
+          <div class="pillar-title">Extrair o máximo</div>
+          <p class="pillar-body">
+            Um modelo cru é só uma ferramenta. A engenharia está em formatar a entrada,
+            filtrar a saída, combinar múltiplos resultados, e decidir quando <em>não</em> usar.
+          </p>
+        </div>
+        <div class="pillar">
+          <span class="pillar-icon">⚡</span>
+          <div class="pillar-title">Acelerar com IA</div>
+          <p class="pillar-body">
+            Copilots de código transformaram o "demora um sprint" em "sai em horas".
+            O novo dev usa IA pra produzir IA, e entrega mais em menos tempo.
+          </p>
+        </div>
+      </div>
+
+      <span class="pill">
+        O novo perfil premium: pensar como arquiteto, usar modelos como peças, escrever com copilot.
+      </span>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 20: LONG-TERM + SHORT-TERM ============ -->
+  <section class="slide" data-theme="light">
+    <div class="slide-content">
+      <span class="eyebrow">Arquitetura final · long-term + short-term</span>
+      <h2 class="slide-heading">
+        Um gosto tem dois<br>
+        <span class="accent">horizontes de tempo</span>.
+      </h2>
+      <p class="slide-sub">
+        O centroid simples colapsa tudo num ponto. Mas seu gosto "de sempre" é diferente
+        do que te pegou essa semana. A arquitetura do projeto separa os dois, e combina
+        de forma adaptativa.
+      </p>
+
+      <div class="ltst-grid">
+        <div class="ltst-card lt">
+          <span class="ltst-badge">Long-term</span>
+          <div class="ltst-title">Identidade</div>
+          <div class="ltst-tag">"quem você é ao longo do tempo"</div>
+          <div class="ltst-params">
+            <div class="ltst-param"><span class="k">Janela</span><span class="v">180 dias</span></div>
+            <div class="ltst-param"><span class="k">Half-life</span><span class="v">30 dias</span></div>
+            <div class="ltst-param"><span class="k">Ativação</span><span class="v">peso total ≥ 2.0</span></div>
+          </div>
+          <div class="ltst-signature">
+            Move devagar. Captura <em>cinema, código, corrida</em>, os temas que definem seu perfil.
+          </div>
+        </div>
+
+        <div class="ltst-card st">
+          <span class="ltst-badge">Short-term</span>
+          <div class="ltst-title">Atenção</div>
+          <div class="ltst-tag">"o que te pegou agora"</div>
+          <div class="ltst-params">
+            <div class="ltst-param"><span class="k">Janela</span><span class="v">48 horas</span></div>
+            <div class="ltst-param"><span class="k">Half-life</span><span class="v">6 horas</span></div>
+            <div class="ltst-param"><span class="k">Ativação</span><span class="v">peso total ≥ 1.0</span></div>
+          </div>
+          <div class="ltst-signature">
+            Muda rápido. Captura "<em>sexta à noite você virou fã de jazz</em>". Esquece no dia seguinte.
+          </div>
+        </div>
+      </div>
+
+      <div class="score-formula">
+        <span class="score-label">Como o ranker combina os dois</span>
+        <span class="score-eq">score = α · cos(LT, post) + (1 − α) · cos(ST, post)</span>
+        <span class="score-hint">
+          α é <strong>adaptativo</strong>: usuário frio (menos de 5 interações em 24h) → <span class="alpha-hi">α = 0.8</span> (confia no LT). Usuário ativo (≥5) → <span class="alpha-lo">α = 0.3</span> (confia no ST, ele está no embalo).
+        </span>
+      </div>
+
+      <span class="pill">
+        Um embedding não capta mudança de humor. Dois embeddings especializados com combinação adaptativa, sim. Isso é arquitetura.
+      </span>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 21: ARQUITETURA COMPLETA DO PIPELINE ============ -->
+  <section class="slide" data-theme="light">
+    <div class="slide-content">
+      <span class="eyebrow">Arquitetura final · pipeline completo</span>
+      <h2 class="slide-heading" style="font-size: clamp(30px, 3.5vw, 48px); margin-bottom: 14px;">
+        Da interação do usuário ao <span class="accent">post no feed</span>.
+      </h2>
+      <p class="slide-sub" style="font-size: 16px; margin-bottom: 18px;">
+        Sete estágios em uma única chamada do <code>RecommendationService::feedFor()</code>.
+        Tudo o que a gente construiu na aula, orquestrado de ponta a ponta.
+      </p>
+
+      <div class="pipeline">
+
+        <div class="pipeline-step phase-input">
+          <span class="pipeline-num">01</span>
+          <div class="pipeline-body">
+            <div class="pipeline-title">Entrada · vetores do usuário</div>
+            <div class="pipeline-chips">
+              <span class="pipeline-chip">LT embedding</span>
+              <span class="pipeline-chip">ST embedding</span>
+              <span class="pipeline-chip">avoid embedding</span>
+              <span class="pipeline-chip">interest clusters (k-means)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="pipeline-connector" data-note="5 fontes paralelas"></div>
+
+        <div class="pipeline-step">
+          <span class="pipeline-num">02</span>
+          <div class="pipeline-body">
+            <div class="pipeline-title">Candidate Generation</div>
+            <div class="pipeline-chips">
+              <span class="pipeline-chip">ANN · long-term <strong>300</strong></span>
+              <span class="pipeline-chip">ANN · short-term <strong>200</strong></span>
+              <span class="pipeline-chip">ANN · clusters <strong>300</strong></span>
+              <span class="pipeline-chip">Trending (Redis) <strong>100</strong></span>
+              <span class="pipeline-chip">Exploration <strong>50</strong></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="pipeline-connector" data-note="dedup por post_id · hard filters"></div>
+
+        <div class="pipeline-step">
+          <span class="pipeline-num">03</span>
+          <div class="pipeline-body">
+            <div class="pipeline-title">Hard filters · elimina candidatos inviáveis</div>
+            <div class="pipeline-chips">
+              <span class="pipeline-chip">missing_embedding</span>
+              <span class="pipeline-chip">self_author</span>
+              <span class="pipeline-chip">reports ≥ 3</span>
+              <span class="pipeline-chip">already_seen (Redis)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="pipeline-connector" data-note="α adaptativo · score por candidato"></div>
+
+        <div class="pipeline-step">
+          <span class="pipeline-num">04</span>
+          <div class="pipeline-body">
+            <div class="pipeline-title">Ranking · cosseno + boosts de negócio</div>
+            <div class="pipeline-formula">score = α·cos(LT, p) + (1−α)·cos(ST, p) − β·cos(avoid, p) + γ·recency + δ·trending</div>
+          </div>
+        </div>
+
+        <div class="pipeline-connector" data-note="diversidade em cascata"></div>
+
+        <div class="pipeline-step">
+          <span class="pipeline-num">05</span>
+          <div class="pipeline-body">
+            <div class="pipeline-title">Reranking · diversifica o top</div>
+            <div class="pipeline-chips">
+              <span class="pipeline-chip">MMR (λ=0.7)</span>
+              <span class="pipeline-chip">Author Quota</span>
+              <span class="pipeline-chip">Exploration Slot</span>
+              <span class="pipeline-chip">Cluster Coverage</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="pipeline-connector" data-note="slice(0, page·pageSize)"></div>
+
+        <div class="pipeline-step">
+          <span class="pipeline-num">06</span>
+          <div class="pipeline-body">
+            <div class="pipeline-title">Pós-processamento · observabilidade e memória</div>
+            <div class="pipeline-chips">
+              <span class="pipeline-chip">buildRankedRows (trace)</span>
+              <span class="pipeline-chip">PersistRankingTracesJob (queue)</span>
+              <span class="pipeline-chip">seenFilter.markSeen (Redis)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="pipeline-connector" data-note="hydrate com autor, mídia, likes"></div>
+
+        <div class="pipeline-step phase-output">
+          <span class="pipeline-num">07</span>
+          <div class="pipeline-body">
+            <div class="pipeline-title">📱 Feed entregue ao Livewire</div>
+            <div class="pipeline-chips">
+              <span class="pipeline-chip">Collection&lt;Post&gt;</span>
+              <span class="pipeline-chip">ordenado · diversificado · com trace ID</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="bypass-row">
+        <span class="bypass-label">Rotas alternativas (early return)</span>
+        <span class="bypass-item">🛑 <code>killSwitch</code> ligado → cronológico</span>
+        <span class="bypass-item">❄️ <code>coldStart</code> (LT nulo + &lt;5 interações) → trending + recent</span>
+        <span class="bypass-item">🧪 experimento <code>control</code> → aleatório (1% dos users)</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 22: BORA CODAR ISSO? (vibe coding + ralph loop) ============ -->
+  <section class="slide" data-theme="light">
+    <div class="slide-content">
+      <span class="eyebrow">Mão na massa · como vamos codar o resto</span>
+      <h2 class="slide-heading">
+        Bora <span class="accent">codar</span> isso?
+      </h2>
+      <p class="slide-sub">
+        Implementar clusters + MMR + cobertura + quota na mão levaria <strong>dias ou meses</strong>.
+        Mas a gente não vai fazer na mão, vai <strong>especificar</strong> e deixar um loop autônomo executar.
+      </p>
+
+      <div class="vs-split">
+        <div class="vs-card before">
+          <span class="vs-label">Jeito antigo</span>
+          <div class="vs-title">Codar na mão</div>
+          <ul class="vs-list">
+            <li><span class="ico">⏱️</span>dias ou meses por feature</li>
+            <li><span class="ico">📝</span>escrever linha a linha</li>
+            <li><span class="ico">🐛</span>debug manual, retrabalho</li>
+            <li><span class="ico">🔁</span>refactor ping-pong</li>
+          </ul>
+        </div>
+        <div class="vs-arrow">→</div>
+        <div class="vs-card after">
+          <span class="vs-label">Jeito novo</span>
+          <div class="vs-title">Vibe coding</div>
+          <ul class="vs-list">
+            <li><span class="ico">⏱️</span>horas por feature</li>
+            <li><span class="ico">📋</span>especificar a intenção</li>
+            <li><span class="ico">🤖</span>loop autônomo implementa e testa</li>
+            <li><span class="ico">👁️</span>dev revisa o diff</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="workflow">
+        <div class="workflow-step">
+          <div class="wf-num">01</div>
+          <span class="wf-icon">📋</span>
+          <div class="wf-title">Especificar</div>
+          <div class="wf-desc">Descrever <em>o que</em> queremos, requisitos, testes, critérios de aceite. Não <em>como</em>.</div>
+        </div>
+        <span class="workflow-arrow">→</span>
+        <div class="workflow-step">
+          <div class="wf-num">02</div>
+          <span class="wf-icon">🤖</span>
+          <div class="wf-title">Ralph Loop</div>
+          <div class="wf-desc">Loop autônomo implementa, roda testes, ajusta até passar. Tudo sem intervenção.</div>
+        </div>
+        <span class="workflow-arrow">→</span>
+        <div class="workflow-step">
+          <div class="wf-num">03</div>
+          <span class="wf-icon">👁️</span>
+          <div class="wf-title">Revisar</div>
+          <div class="wf-desc">Ler o diff, validar comportamento no browser, ajustar a spec se precisar iterar.</div>
+        </div>
+      </div>
+
+      <span class="pill">
+        Engenharia não some, ela migra pra <strong>especificação</strong> e <strong>revisão</strong>. É aí que mora o valor agora.
+      </span>
+    </div>
+  </section>
+
+</div>
+
+<div class="progress"><div class="progress-fill"></div></div>
+
+<div class="nav">
+  <button class="prev" aria-label="Anterior">‹</button>
+  <span class="counter">1 / 1</span>
+  <button class="next" aria-label="Próximo">›</button>
+</div>
+
+<div class="hint">
+  <kbd>←</kbd> <kbd>→</kbd> navegar · <kbd>F</kbd> tela cheia
+</div>
+
+<script>
+(function() {
+  const slides  = Array.from(document.querySelectorAll('.slide'));
+  const total   = slides.length;
+  const counter = document.querySelector('.counter');
+  const prev    = document.querySelector('.prev');
+  const next    = document.querySelector('.next');
+  const fill    = document.querySelector('.progress-fill');
+  let current   = 0;
+
+  function go(idx) {
+    if (idx < 0 || idx >= total || idx === current) return;
+    slides[current].classList.remove('active');
+    current = idx;
+    const slide = slides[current];
+    slide.classList.add('active');
+    counter.textContent = `${current + 1} / ${total}`;
+    fill.style.width = `${((current + 1) / total) * 100}%`;
+    prev.disabled = current === 0;
+    next.disabled = current === total - 1;
+    document.body.dataset.theme = slide.dataset.theme || 'light';
+  }
+
+  prev.addEventListener('click', () => go(current - 1));
+  next.addEventListener('click', () => go(current + 1));
+
+  document.addEventListener('keydown', (e) => {
+    if (e.target.matches('input, textarea')) return;
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+      e.preventDefault(); go(current + 1);
+    } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+      e.preventDefault(); go(current - 1);
+    } else if (e.key === 'Home') {
+      e.preventDefault(); go(0);
+    } else if (e.key === 'End') {
+      e.preventDefault(); go(total - 1);
+    } else if (e.key === 'f' || e.key === 'F') {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+      else document.exitFullscreen();
+    }
+  });
+
+  // init
+  counter.textContent = `1 / ${total}`;
+  fill.style.width = `${(1/total) * 100}%`;
+  prev.disabled = true;
+  next.disabled = total === 1;
+  document.body.dataset.theme = slides[0].dataset.theme || 'light';
+})();
+</script>
+</body>
+</html>

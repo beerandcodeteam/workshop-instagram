@@ -32,13 +32,13 @@ Explicitly deferred (and intentionally **not** represented in this plan):
 | Phase | Title | Status |
 |-------|-------|--------|
 | 0     | Project baseline | Complete |
-| 1     | Frontend foundations | Pending |
-| 2     | Authentication | Pending |
-| 3     | Domain schema & models | Pending |
-| 4     | File storage (MinIO/S3) | Pending |
-| 5     | Feed | Pending |
-| 6     | Post creation | Pending |
-| 7     | Post management | Pending |
-| 8     | Likes | Pending |
-| 9     | Comments | Pending |
+| 1     | Frontend foundations | Complete |
+| 2     | Authentication | Complete |
+| 3     | Domain schema & models | Complete |
+| 4     | File storage (MinIO/S3) | Complete |
+| 5     | Feed | Complete |
+| 6     | Post creation | Complete |
+| 7     | Post management | Complete |
+| 8     | Likes | Complete |
+| 9     | Comments | Complete |
 | 10    | Cross-cutting quality gates | Pending |

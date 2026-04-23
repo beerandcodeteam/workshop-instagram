@@ -39,22 +39,30 @@ class Index extends Component
 
     public function render()
     {
-        $totalPosts = Post::count();
 
-        $posts = Post::with([
-            'author',
-            'type',
-            'media',
-            'likes:id,post_id,user_id',
-        ])
+        $viewerCentroid = auth()->user()?->embedding;
+
+        $query = Post::query()
+            ->select('posts.*')
+            ->with(['author', 'type', 'media', 'likes:id,post_id,user_id'])
             ->withCount(['likes', 'comments'])
-            ->latest()
-            ->limit($this->perPage)
-            ->get();
+            ->join('post_embeddings', 'post_embeddings.post_id', '=', 'posts.id');
+
+        if ($viewerCentroid){
+            $literal = '['.implode(',', $viewerCentroid).']';
+            $query->orderByRaw('post_embeddings.embedding <=> ?::vector', [$literal]);
+        } else {
+            $query->latest('posts.created_at')->latest('posts.id');
+        }
+
+        $totalPosts = Post::whereHas('embedding')->count();
+
+        $posts = $query->limit($this->perPage)->get();
 
         return view('pages.feed.index', [
             'posts' => $posts,
             'hasMorePages' => $totalPosts > $posts->count(),
         ]);
+
     }
 }

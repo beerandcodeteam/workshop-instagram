@@ -2,14 +2,18 @@
 
 namespace App\Models;
 
+use App\Observers\PostObserver;
 use Database\Factories\PostFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable(['user_id', 'post_type_id', 'body'])]
+#[ObservedBy(PostObserver::class)]
 class Post extends Model
 {
     /** @use HasFactory<PostFactory> */
@@ -38,5 +42,10 @@ class Post extends Model
     public function comments(): HasMany
     {
         return $this->hasMany(Comment::class);
+    }
+
+    public function embedding(): HasOne
+    {
+        return $this->hasOne(PostEmbedding::class);
     }
 }
